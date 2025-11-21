@@ -34,7 +34,14 @@ export default function LocationAccess() {
           time.
         </p>
 
-        <div style={{ marginTop: "18px", display: "flex", flexDirection: "column", gap: "10px" }}>
+        <div
+          style={{
+            marginTop: "18px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px",
+          }}
+        >
           <button
             onClick={goToHome}
             style={{

@@ -5,7 +5,7 @@ export default function Signup() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // After signup, go to location access
+    // Sprint-1: pretend account created → go to location
     navigate("/location");
   };
 
@@ -34,7 +34,10 @@ export default function Signup() {
           Create a new account to start ordering.
         </p>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+        >
           <div>
             <label style={{ fontSize: "0.85rem" }}>Full Name</label>
             <input
@@ -101,7 +104,13 @@ export default function Signup() {
           <button
             type="button"
             onClick={() => navigate("/login")}
-            style={{ border: "none", background: "none", color: "#0077ff", cursor: "pointer", padding: 0 }}
+            style={{
+              border: "none",
+              background: "none",
+              color: "#0077ff",
+              cursor: "pointer",
+              padding: 0,
+            }}
           >
             Login
           </button>

@@ -5,7 +5,7 @@ export default function Login() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // for now we just navigate – no backend in Sprint 1
+    // Sprint-1: no real auth, just go to location screen
     navigate("/location");
   };
 
@@ -34,7 +34,10 @@ export default function Login() {
           Welcome back! Please login to continue.
         </p>
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+        >
           <div>
             <label style={{ fontSize: "0.85rem" }}>Email</label>
             <input
@@ -86,7 +89,13 @@ export default function Login() {
           <button
             type="button"
             onClick={() => navigate("/signup")}
-            style={{ border: "none", background: "none", color: "#0077ff", cursor: "pointer", padding: 0 }}
+            style={{
+              border: "none",
+              background: "none",
+              color: "#0077ff",
+              cursor: "pointer",
+              padding: 0,
+            }}
           >
             Sign up
           </button>

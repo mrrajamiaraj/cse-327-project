@@ -17,7 +17,7 @@ export default function Home() {
         Choose from popular items near you.
       </p>
 
-      {/* Simple menu grid */}
+      {/* Menu grid */}
       <div
         style={{
           display: "grid",
