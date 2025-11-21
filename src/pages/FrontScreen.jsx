@@ -5,6 +5,30 @@ import onboarding1 from "../assets/onboarding1.png";
 import onboarding2 from "../assets/onboarding2.png";
 import onboarding3 from "../assets/onboarding3.png";
 
+const ORANGE = "#ff7a00";
+
+
+const SCREEN_WRAPPER = {
+  width: "100vw",
+  height: "100vh",
+  background: "#f3f3f3",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+};
+
+const CARD_CONTAINER = {
+  width: "100%",
+  maxWidth: 360,
+  minHeight: 600,
+  background: "#fff",
+  borderRadius: 30,
+  boxShadow: "0 16px 40px rgba(0,0,0,0.08)",
+  display: "flex",
+  flexDirection: "column",
+  padding: "24px",
+};
+
 const slides = [
   {
     id: 1,
@@ -16,7 +40,7 @@ const slides = [
   },
   {
     id: 2,
-    title: "Order from choosen chef",
+    title: "Order from chosen chef",
     description:
       "Order from your favourite chefs in one place, you just place the order we do the rest.",
     image: onboarding2,
@@ -32,79 +56,47 @@ const slides = [
   },
 ];
 
-const ORANGE = "#ff7a00";
-
 export default function FrontScreen() {
   const [step, setStep] = useState(0);
   const navigate = useNavigate();
   const current = slides[step];
 
-  const handleNext = () => {
-    if (step < slides.length - 1) {
-      setStep(step + 1);
-    } else {
-      navigate("/login");
-    }
+  const next = () => {
+    if (step < slides.length - 1) setStep(step + 1);
+    else navigate("/login");
   };
 
-  const handleSkip = () => {
-    navigate("/login");
-  };
+  const skip = () => navigate("/login");
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f3f3f3",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: "16px",
-      }}
-    >
-      {/* Main white card like in Figma */}
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 360,
-          background: "#ffffff",
-          borderRadius: 30,
-          boxShadow: "0 16px 40px rgba(0,0,0,0.08)",
-          padding: "24px 24px 20px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-        }}
-      >
-        {/* Illustration */}
+    <div style={SCREEN_WRAPPER}>
+      <div style={CARD_CONTAINER}>
+        
         <img
           src={current.image}
-          alt={current.title}
           style={{
             width: "100%",
             maxWidth: 260,
-            height: "auto",
-            marginBottom: 24,
+            margin: "0 auto 20px auto",
           }}
         />
 
-        {/* Text */}
         <h2
           style={{
-            fontSize: "1.3rem",
-            fontWeight: 600,
-            marginBottom: 8,
             textAlign: "center",
-            color: "#333",
+            fontWeight: 600,
+            fontSize: "1.2rem",
+            marginBottom: 8,
           }}
         >
           {current.title}
         </h2>
+
         <p
           style={{
-            fontSize: "0.9rem",
             textAlign: "center",
-            color: "#888",
+            color: "#666",
+            fontSize: "0.9rem",
             marginBottom: 20,
           }}
         >
@@ -115,39 +107,37 @@ export default function FrontScreen() {
         <div
           style={{
             display: "flex",
-            gap: 6,
             justifyContent: "center",
-            marginBottom: 18,
+            gap: 6,
+            marginBottom: 20,
           }}
         >
-          {slides.map((slide, index) => (
+          {slides.map((s, i) => (
             <span
-              key={slide.id}
+              key={i}
               style={{
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background:
-                  index === step ? ORANGE : "rgba(0,0,0,0.15)",
+                background: i === step ? ORANGE : "#ccc",
               }}
             />
           ))}
         </div>
 
-        {/* Button */}
+        {/* NEXT BUTTON */}
         <button
-          onClick={handleNext}
+          onClick={next}
           style={{
             width: "100%",
-            padding: "12px",
+            padding: "14px",
             borderRadius: 999,
             border: "none",
             background: ORANGE,
             color: "#fff",
             fontWeight: 600,
-            fontSize: "0.95rem",
+            marginBottom: 10,
             cursor: "pointer",
-            marginBottom: 6,
           }}
         >
           {current.buttonText}
@@ -155,14 +145,13 @@ export default function FrontScreen() {
 
         {/* Skip */}
         <button
-          onClick={handleSkip}
+          onClick={skip}
           style={{
             border: "none",
             background: "transparent",
-            color: "#999",
+            color: "#888",
             fontSize: "0.85rem",
             cursor: "pointer",
-            marginTop: 4,
           }}
         >
           Skip

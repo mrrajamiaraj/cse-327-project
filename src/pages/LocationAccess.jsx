@@ -1,4 +1,31 @@
 import { useNavigate } from "react-router-dom";
+import locationImg from "../assets/location.png";
+
+const ORANGE = "#ff7a00";
+
+const SCREEN_WRAPPER = {
+  width: "100vw",
+  height: "100vh",
+  background: "#f3f3f3",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+};
+
+
+const CARD_CONTAINER = {
+  width: "100%",
+  maxWidth: 360,
+  minHeight: 600,
+  background: "#ffffff",
+  borderRadius: 30,
+  boxShadow: "0 16px 40px rgba(0,0,0,0.08)",
+  overflow: "hidden",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  padding: "26px 24px 24px",
+};
 
 export default function LocationAccess() {
   const navigate = useNavigate();
@@ -8,66 +35,50 @@ export default function LocationAccess() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          background: "#fff",
-          padding: "24px",
-          borderRadius: "16px",
-          boxShadow: "0 12px 30px rgba(0,0,0,0.12)",
-          textAlign: "center",
-        }}
-      >
-        <h2>Allow Location Access</h2>
-        <p style={{ marginTop: "8px", fontSize: "0.9rem", color: "#555" }}>
-          We use your location to show nearby restaurants and accurate delivery
-          time.
-        </p>
-
-        <div
+    <div style={SCREEN_WRAPPER}>
+      <div style={CARD_CONTAINER}>
+        <img
+          src={locationImg}
+          alt="Location map"
           style={{
-            marginTop: "18px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
+            width: 180,
+            height: 180,
+            borderRadius: 40,
+            objectFit: "cover",
+            marginBottom: 32,
+            marginTop: 20,
+          }}
+        />
+
+        <button
+          onClick={goToHome}
+          style={{
+            width: "100%",
+            padding: "12px",
+            borderRadius: 999,
+            border: "none",
+            background: ORANGE,
+            color: "#fff",
+            fontWeight: 600,
+            fontSize: "0.95rem",
+            cursor: "pointer",
+            marginBottom: 16,
           }}
         >
-          <button
-            onClick={goToHome}
-            style={{
-              padding: "10px",
-              borderRadius: "999px",
-              border: "none",
-              background: "#222",
-              color: "#fff",
-              cursor: "pointer",
-            }}
-          >
-            Allow Location (Mock)
-          </button>
-          <button
-            onClick={goToHome}
-            style={{
-              padding: "10px",
-              borderRadius: "999px",
-              border: "1px solid #222",
-              background: "transparent",
-              cursor: "pointer",
-            }}
-          >
-            Enter Location Manually
-          </button>
-        </div>
+          ACCESS LOCATION
+        </button>
+
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: "0.8rem",
+            color: "#777",
+            marginTop: 8,
+            padding: "0 10px",
+          }}
+        >
+          DFOOD WILL ACCESS YOUR LOCATION ONLY WHILE USING THE APP
+        </p>
       </div>
     </div>
   );
