@@ -1,15 +1,43 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import onboarding1 from "../assets/onboarding1.png";
+import onboarding2 from "../assets/onboarding2.png";
+import onboarding3 from "../assets/onboarding3.png";
+
 const slides = [
-  "Order delicious food from nearby restaurants.",
-  "Track your order in real time.",
-  "Get exclusive discounts and offers.",
+  {
+    id: 1,
+    title: "All your favorites",
+    description:
+      "Get all your loved foods in one place, you just place the order we do the rest.",
+    image: onboarding1,
+    buttonText: "NEXT",
+  },
+  {
+    id: 2,
+    title: "Order from choosen chef",
+    description:
+      "Order from your favourite chefs in one place, you just place the order we do the rest.",
+    image: onboarding2,
+    buttonText: "NEXT",
+  },
+  {
+    id: 3,
+    title: "Free delivery offers",
+    description:
+      "Get all your loved foods in one place, you just place the order we do the rest.",
+    image: onboarding3,
+    buttonText: "GET STARTED",
+  },
 ];
+
+const ORANGE = "#ff7a00";
 
 export default function FrontScreen() {
   const [step, setStep] = useState(0);
   const navigate = useNavigate();
+  const current = slides[step];
 
   const handleNext = () => {
     if (step < slides.length - 1) {
@@ -19,101 +47,126 @@ export default function FrontScreen() {
     }
   };
 
+  const handleSkip = () => {
+    navigate("/login");
+  };
+
   return (
     <div
       style={{
         minHeight: "100vh",
+        background: "#f3f3f3",
         display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
+        justifyContent: "center",
         alignItems: "center",
-        padding: "40px 20px",
-        background:
-          "linear-gradient(135deg, #ff9a9e 0%, #fad0c4 50%, #fbc2eb 100%)",
-        color: "#222",
-        textAlign: "center",
+        padding: "16px",
       }}
     >
-      <div>
-        <h1 style={{ fontSize: "2rem", marginBottom: "10px" }}>
-          CSE 327 Restaurant App
-        </h1>
-        <p style={{ fontSize: "0.9rem", opacity: 0.8 }}>
-          Sprint 1 · Front Screen
+      {/* Main white card like in Figma */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 360,
+          background: "#ffffff",
+          borderRadius: 30,
+          boxShadow: "0 16px 40px rgba(0,0,0,0.08)",
+          padding: "24px 24px 20px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        }}
+      >
+        {/* Illustration */}
+        <img
+          src={current.image}
+          alt={current.title}
+          style={{
+            width: "100%",
+            maxWidth: 260,
+            height: "auto",
+            marginBottom: 24,
+          }}
+        />
+
+        {/* Text */}
+        <h2
+          style={{
+            fontSize: "1.3rem",
+            fontWeight: 600,
+            marginBottom: 8,
+            textAlign: "center",
+            color: "#333",
+          }}
+        >
+          {current.title}
+        </h2>
+        <p
+          style={{
+            fontSize: "0.9rem",
+            textAlign: "center",
+            color: "#888",
+            marginBottom: 20,
+          }}
+        >
+          {current.description}
         </p>
-      </div>
 
-      <div style={{ maxWidth: "400px" }}>
-        <p style={{ fontSize: "1.2rem", fontWeight: "500" }}>{slides[step]}</p>
-
-        <div style={{ marginTop: "12px", display: "flex", gap: "6px", justifyContent: "center" }}>
-          {slides.map((_, index) => (
+        {/* Dots */}
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            justifyContent: "center",
+            marginBottom: 18,
+          }}
+        >
+          {slides.map((slide, index) => (
             <span
-              key={index}
+              key={slide.id}
               style={{
-                width: "8px",
-                height: "8px",
+                width: 8,
+                height: 8,
                 borderRadius: "50%",
-                background: step === index ? "#222" : "rgba(0,0,0,0.2)",
+                background:
+                  index === step ? ORANGE : "rgba(0,0,0,0.15)",
               }}
             />
           ))}
         </div>
-      </div>
 
-      <div style={{ width: "100%", maxWidth: "360px" }}>
+        {/* Button */}
         <button
           onClick={handleNext}
           style={{
             width: "100%",
             padding: "12px",
-            marginBottom: "10px",
-            borderRadius: "999px",
+            borderRadius: 999,
             border: "none",
-            background: "#222",
+            background: ORANGE,
             color: "#fff",
-            fontSize: "1rem",
+            fontWeight: 600,
+            fontSize: "0.95rem",
             cursor: "pointer",
+            marginBottom: 6,
           }}
         >
-          {step < slides.length - 1 ? "Next" : "Continue to Login"}
+          {current.buttonText}
         </button>
 
-        <div
+        {/* Skip */}
+        <button
+          onClick={handleSkip}
           style={{
-            display: "flex",
-            gap: "10px",
-            justifyContent: "center",
-            fontSize: "0.9rem",
+            border: "none",
+            background: "transparent",
+            color: "#999",
+            fontSize: "0.85rem",
+            cursor: "pointer",
+            marginTop: 4,
           }}
         >
-          <button
-            onClick={() => navigate("/login")}
-            style={{
-              flex: 1,
-              padding: "10px",
-              borderRadius: "999px",
-              border: "1px solid #222",
-              background: "transparent",
-              cursor: "pointer",
-            }}
-          >
-            Login
-          </button>
-          <button
-            onClick={() => navigate("/signup")}
-            style={{
-              flex: 1,
-              padding: "10px",
-              borderRadius: "999px",
-              border: "1px solid #222",
-              background: "#fff",
-              cursor: "pointer",
-            }}
-          >
-            Sign Up
-          </button>
-        </div>
+          Skip
+        </button>
       </div>
     </div>
   );
