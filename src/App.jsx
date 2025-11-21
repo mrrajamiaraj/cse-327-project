@@ -1,7 +1,8 @@
 import { Routes, Route, Link, useLocation } from "react-router-dom";
 
-// Flow Screens
-import FrontScreen from "./pages/FrontScreen.jsx";
+// Screens
+import SplashScreen from "./pages/SplashScreen.jsx";
+import FrontScreen from "./pages/FrontScreen.jsx"; // onboarding
 import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import LocationAccess from "./pages/LocationAccess.jsx";
@@ -15,10 +16,14 @@ import Checkout from "./pages/Checkout.jsx";
 export default function App() {
   const location = useLocation();
 
-  // Pages where navbar should not show
-  const hideNav = ["/", "/login", "/signup", "/location"].includes(
-    location.pathname
-  );
+  // Pages where navbar & footer should NOT appear
+  const hideNav = [
+    "/",             // splash
+    "/onboarding",   // onboarding slides
+    "/login",
+    "/signup",
+    "/location"
+  ].includes(location.pathname);
 
   return (
     <div
@@ -47,32 +52,39 @@ export default function App() {
           </div>
 
           <nav style={{ display: "flex", gap: "1rem" }}>
-            <Link to="/home" style={{ color: "#fff" }}>
+            <Link to="/home" style={{ color: "#fff", textDecoration: "none" }}>
               Home
             </Link>
-            <Link to="/restaurant" style={{ color: "#fff" }}>
+            <Link
+              to="/restaurant"
+              style={{ color: "#fff", textDecoration: "none" }}
+            >
               Restaurant
             </Link>
-            <Link to="/cart" style={{ color: "#fff" }}>
+            <Link to="/cart" style={{ color: "#fff", textDecoration: "none" }}>
               Cart
             </Link>
-            <Link to="/checkout" style={{ color: "#fff" }}>
+            <Link
+              to="/checkout"
+              style={{ color: "#fff", textDecoration: "none" }}
+            >
               Checkout
             </Link>
           </nav>
         </header>
       )}
 
-      {/* Main Routes */}
+      {/* ROUTES */}
       <main style={{ flex: 1 }}>
         <Routes>
-          {/* Flow */}
-          <Route path="/" element={<FrontScreen />} />
+          {/* Intro Flow Screens */}
+          <Route path="/" element={<SplashScreen />} />
+          <Route path="/onboarding" element={<FrontScreen />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/location" element={<LocationAccess />} />
 
-          {/* Main */}
+          {/* Main App Screens */}
           <Route path="/home" element={<Home />} />
           <Route path="/restaurant" element={<Restaurant />} />
           <Route path="/cart" element={<Cart />} />
@@ -86,11 +98,12 @@ export default function App() {
           style={{
             padding: "1rem 2rem",
             textAlign: "center",
+            fontSize: "0.85rem",
             color: "#555",
-            borderTop: "1px solid #ccc",
+            borderTop: "1px solid #ddd",
           }}
         >
-          Sprint 1 – CSE 327 Project
+          Sprint 1 · CSE 327 React Project
         </footer>
       )}
     </div>
