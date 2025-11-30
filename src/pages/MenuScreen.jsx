@@ -6,6 +6,16 @@ const ORANGE = "#ff7a00";
 export default function MenuScreen() {
   const navigate = useNavigate();
 
+  // Handle clicks on any item
+  const handleItemClick = (item) => {
+    if (item.label === "Personal Info") {
+      navigate("/personal-info");
+    }
+    // later you can add:
+    // else if (item.label === "Cart") navigate("/cart");
+    // etc.
+  };
+
   return (
     <div
       style={{
@@ -125,7 +135,7 @@ export default function MenuScreen() {
           </div>
         </div>
 
-        {/* First group: personal info, addresses */}
+        {/* First group: personal info, addresses, cart, etc. */}
         <MenuGroup
           items={[
             { icon: "👤", label: "Personal Info" },
@@ -135,6 +145,7 @@ export default function MenuScreen() {
             { icon: "🔔", label: "Notifications" },
             { icon: "💳", label: "Payment Method" },
           ]}
+          onItemClick={handleItemClick}
         />
 
         {/* Second group: faq, reviews, settings */}
@@ -155,7 +166,7 @@ export default function MenuScreen() {
   );
 }
 
-function MenuGroup({ items }) {
+function MenuGroup({ items, onItemClick }) {
   return (
     <div
       style={{
@@ -168,6 +179,7 @@ function MenuGroup({ items }) {
       {items.map((item, idx) => (
         <div
           key={item.label}
+          onClick={() => onItemClick && onItemClick(item)}
           style={{
             display: "flex",
             alignItems: "center",
@@ -175,6 +187,7 @@ function MenuGroup({ items }) {
             padding: "8px 4px",
             borderBottom:
               idx === items.length - 1 ? "none" : "1px solid #f0f0f0",
+            cursor: onItemClick ? "pointer" : "default",
           }}
         >
           <div

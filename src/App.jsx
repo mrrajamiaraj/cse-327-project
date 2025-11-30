@@ -7,6 +7,7 @@ import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import LocationAccess from "./pages/LocationAccess.jsx";
 import MenuScreen from "./pages/MenuScreen.jsx";
+import PersonalInfo from "./pages/PersonalInfo.jsx";
 
 
 // Main app pages
@@ -92,6 +93,7 @@ export default function App() {
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/menu" element={<MenuScreen />} />
+          <Route path="/personal-info" element={<PersonalInfo />} />
 
 
           {/* Other features */}
