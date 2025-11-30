@@ -6,6 +6,8 @@ import FrontScreen from "./pages/FrontScreen.jsx";
 import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import LocationAccess from "./pages/LocationAccess.jsx";
+import MenuScreen from "./pages/MenuScreen.jsx";
+
 
 // Main app pages
 import HomeScreen from "./pages/HomeScreen.jsx";
@@ -89,6 +91,8 @@ export default function App() {
           <Route path="/restaurant-view" element={<RestaurantView />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
+          <Route path="/menu" element={<MenuScreen />} />
+
 
           {/* Other features */}
           <Route path="/offer" element={<Offer />} />
