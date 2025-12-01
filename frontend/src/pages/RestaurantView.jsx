@@ -1,9 +1,10 @@
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import api from "../services/api";
 
 // images from assets
 import coverImg from "../assets/res-cover.png";
 import burger1 from "../assets/item-burger1.png";
-import burger2 from "../assets/item-burger2.png";
 
 const ORANGE = "#ff7a00";
 
@@ -12,8 +13,44 @@ export default function RestaurantView() {
   const location = useLocation();
   const restaurant = location.state?.restaurant;
 
+  const [restaurantDetails, setRestaurantDetails] = useState(null);
+  const [foodItems, setFoodItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRestaurantData = async () => {
+      if (!restaurant?.id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Fetch restaurant details
+        const restaurantResponse = await api.get(`customer/restaurants/${restaurant.id}/`);
+        setRestaurantDetails(restaurantResponse.data);
+
+        // Fetch all foods and filter by restaurant
+        const foodsResponse = await api.get('customer/food/');
+        const restaurantFoods = foodsResponse.data.filter(food => food.restaurant === restaurant.id);
+        setFoodItems(restaurantFoods);
+
+        // Extract unique categories from foods
+        const uniqueCategories = [...new Set(restaurantFoods.map(food => food.category?.name).filter(Boolean))];
+        setCategories(["All", ...uniqueCategories]);
+      } catch (error) {
+        console.error("Error fetching restaurant data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRestaurantData();
+  }, [restaurant]);
+
   // Fallback if no restaurant passed (e.g. direct access)
-  const displayRestaurant = restaurant || {
+  const displayRestaurant = restaurantDetails || restaurant || {
     name: "Spicy Restaurant",
     subtitle: "Best spicy foods",
     rating: 4.8,
@@ -22,22 +59,33 @@ export default function RestaurantView() {
     image: coverImg
   };
 
-  const foodItems = [
-    {
-      id: 1,
-      name: "Burger Ferguson",
-      subtitle: "Spicy Restaurant",
-      price: 400,
-      image: burger1,
-    },
-    {
-      id: 2,
-      name: "Rockin' Burgers",
-      subtitle: "Cafecachafino",
-      price: 380,
-      image: burger2,
-    },
-  ];
+  // Filter foods by active category
+  const filteredFoods = activeCategory === "All" 
+    ? foodItems 
+    : foodItems.filter(food => food.category?.name === activeCategory);
+
+  const handleAddToCart = async (foodId) => {
+    try {
+      await api.post('customer/cart/', {
+        food_id: foodId,
+        quantity: 1,
+        variants: [],
+        addons: []
+      });
+      alert("Added to cart!");
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      alert("Failed to add to cart");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <div
@@ -168,15 +216,16 @@ export default function RestaurantView() {
               paddingBottom: 10,
             }}
           >
-            {["Burger", "Sandwich", "Pizza", "Snacks"].map((cat, i) => (
+            {categories.map((cat, i) => (
               <button
                 key={i}
+                onClick={() => setActiveCategory(cat)}
                 style={{
                   padding: "8px 18px",
                   borderRadius: 20,
-                  border: cat === "Burger" ? "none" : "1px solid #ddd",
-                  background: cat === "Burger" ? ORANGE : "#fff",
-                  color: cat === "Burger" ? "#fff" : "#333",
+                  border: cat === activeCategory ? "none" : "1px solid #ddd",
+                  background: cat === activeCategory ? ORANGE : "#fff",
+                  color: cat === activeCategory ? "#fff" : "#333",
                   fontSize: "0.85rem",
                   cursor: "pointer",
                   whiteSpace: "nowrap",
@@ -197,10 +246,10 @@ export default function RestaurantView() {
             margin: "16px 0 10px",
           }}
         >
-          Burger (10)
+          {activeCategory} ({filteredFoods.length})
         </div>
 
-        {/* horizontal burger cards */}
+        {/* horizontal food cards */}
         <div
           style={{
             padding: "0 20px 20px",
@@ -209,80 +258,87 @@ export default function RestaurantView() {
             overflowX: "auto",
           }}
         >
-          {foodItems.map((item) => (
-            <div
-              key={item.id}
-              style={{
-                width: 160,
-                background: "#fff",
-                borderRadius: 22,
-                boxShadow: "0 8px 16px rgba(0,0,0,0.10)",
-                paddingBottom: 12,
-                flexShrink: 0,
-              }}
-            >
-              <div style={{ width: "100%", height: 110, overflow: "hidden" }}>
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
-                  }}
-                />
-              </div>
-
-              <div style={{ padding: "10px" }}>
-                <div
-                  style={{
-                    fontWeight: 600,
-                    marginBottom: 4,
-                    fontSize: "0.95rem",
-                  }}
-                >
-                  {item.name}
-                </div>
-
-                <div style={{ color: "#777", fontSize: "0.75rem" }}>
-                  {item.subtitle}
-                </div>
-
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <span
+          {filteredFoods.length > 0 ? (
+            filteredFoods.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  width: 160,
+                  background: "#fff",
+                  borderRadius: 22,
+                  boxShadow: "0 8px 16px rgba(0,0,0,0.10)",
+                  paddingBottom: 12,
+                  flexShrink: 0,
+                }}
+              >
+                <div style={{ width: "100%", height: 110, overflow: "hidden" }}>
+                  <img
+                    src={item.image || burger1}
+                    alt={item.name}
                     style={{
-                      fontWeight: 700,
-                      color: "#000",
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                </div>
+
+                <div style={{ padding: "10px" }}>
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      marginBottom: 4,
+                      fontSize: "0.95rem",
                     }}
                   >
-                    ৳{item.price}
-                  </span>
+                    {item.name}
+                  </div>
 
-                  <button
+                  <div style={{ color: "#777", fontSize: "0.75rem" }}>
+                    {item.description?.substring(0, 30)}...
+                  </div>
+
+                  <div
                     style={{
-                      width: 32,
-                      height: 32,
-                      background: ORANGE,
-                      borderRadius: "50%",
-                      border: "none",
-                      color: "#fff",
-                      fontSize: "1.2rem",
-                      cursor: "pointer",
+                      marginTop: 10,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
                     }}
                   >
-                    +
-                  </button>
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        color: "#000",
+                      }}
+                    >
+                      ৳{item.price}
+                    </span>
+
+                    <button
+                      onClick={() => handleAddToCart(item.id)}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        background: ORANGE,
+                        borderRadius: "50%",
+                        border: "none",
+                        color: "#fff",
+                        fontSize: "1.2rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               </div>
+            ))
+          ) : (
+            <div style={{ color: "#999", padding: "20px", textAlign: "center", width: "100%" }}>
+              No items found in this category
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
