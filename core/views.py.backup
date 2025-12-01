@@ -1,3 +1,4 @@
+# core/views.py - FULL CODE
 from rest_framework import viewsets, status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -291,47 +292,6 @@ class PaymentMethodViewSet(viewsets.ModelViewSet):
 
 class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = TransactionSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Transaction.objects.filter(order__user=self.request.user)
-
-class AIChatViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated]
-
-    def create(self, request):
-        message = request.data['message']
-        # Mock AI for Figma mood suggestion
-        response = "Based on your mood, try Pizza!"
-        AIChatMessage.objects.create(user=request.user, message=message, response=response)
-        return Response({'suggestion': response, 'recommended_foods': [{'id': 1, 'name': 'Pizza'}]})
-
-    @action(detail=False, methods=['get'])
-    def history(self, request):
-        messages = AIChatMessage.objects.filter(user=self.request.user)
-        return Response(AIChatSerializer(messages, many=True).data)
-
-# Restaurant
-class RestaurantProfileView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        restaurant = get_object_or_404(Restaurant, owner=request.user)
-        return Response(RestaurantSerializer(restaurant).data)
-
-    def put(self, request):
-        restaurant = get_object_or_404(Restaurant, owner=request.user)
-        serializer = RestaurantSerializer(restaurant, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=400)
-
-class CategoryViewSet(viewsets.ModelViewSet):
-    serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
         return Category.objects.filter(restaurant__owner=self.request.user)
 
     def perform_create(self, serializer):

@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 // images from assets
 import coverImg from "../assets/res-cover.png";
@@ -9,6 +9,18 @@ const ORANGE = "#ff7a00";
 
 export default function RestaurantView() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const restaurant = location.state?.restaurant;
+
+  // Fallback if no restaurant passed (e.g. direct access)
+  const displayRestaurant = restaurant || {
+    name: "Spicy Restaurant",
+    subtitle: "Best spicy foods",
+    rating: 4.8,
+    time: "25 min",
+    isFree: true,
+    image: coverImg
+  };
 
   const foodItems = [
     {
@@ -94,7 +106,7 @@ export default function RestaurantView() {
         {/* cover image */}
         <div style={{ padding: "0 20px", marginBottom: 10 }}>
           <img
-            src={coverImg}
+            src={displayRestaurant.image || coverImg}
             alt="restaurant"
             style={{
               width: "100%",
@@ -110,7 +122,7 @@ export default function RestaurantView() {
           <div
             style={{ fontWeight: 700, fontSize: "1.2rem", marginBottom: 6 }}
           >
-            Spicy Restaurant
+            {displayRestaurant.name}
           </div>
 
           <p
@@ -121,7 +133,7 @@ export default function RestaurantView() {
               marginBottom: 14,
             }}
           >
-            Best spicy foods with burgers, sandwiches, pizza and more.
+            {displayRestaurant.subtitle || "Delicious food waiting for you."}
           </p>
 
           {/* rating row */}
@@ -135,15 +147,15 @@ export default function RestaurantView() {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ color: ORANGE }}>⭐</span>
-              <strong>4.8</strong>
+              <strong>{displayRestaurant.rating}</strong>
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span>⏱</span> 25 min
+              <span>⏱</span> {displayRestaurant.time}
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span>🚚</span> Free delivery
+              <span>🚚</span> {displayRestaurant.isFree ? "Free delivery" : "Delivery fees apply"}
             </div>
           </div>
 

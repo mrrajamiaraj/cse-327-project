@@ -57,8 +57,8 @@ export default function Signup() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       return;
     }
 
@@ -80,10 +80,17 @@ export default function Signup() {
       // Go to location access
       navigate("/location");
     } catch (err) {
-      const msg = err.response?.data?.email?.[0] ||
-                  err.response?.data?.password?.[0] ||
-                  err.response?.data?.detail ||
-                  "Signup failed. Please try again.";
+      // Debug: Log the full error response
+      console.log("Full error object:", err);
+      console.log("Error response:", err.response);
+      console.log("Error response data:", err.response?.data);
+
+      // Backend returns errors in the 'error' field
+      const msg = err.response?.data?.error ||
+        err.response?.data?.email?.[0] ||
+        err.response?.data?.password?.[0] ||
+        err.response?.data?.detail ||
+        "Signup failed. Please try again.";
       setError(msg);
     } finally {
       setLoading(false);
@@ -210,7 +217,7 @@ export default function Signup() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength="6"
+                minLength="8"
                 style={inputStyle}
               />
             </div>

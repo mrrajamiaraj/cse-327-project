@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
+import api from "../services/api";
 // category icons from assets
 import catAll from "../assets/cat-all.png";
 import catHotdog from "../assets/cat-hotdog.png";
@@ -11,54 +12,79 @@ const ORANGE = "#ff7a00";
 const GREY_BG = "#f3f3f3";
 const DARK_TEXT = "#222";
 
-const categories = [
-  { id: 1, label: "All", image: catAll },
-  { id: 2, label: "Hot Dog", image: catHotdog },
-  { id: 3, label: "Burger", image: catBurger },
-  // { id: 4, label: "Pizza", image: catPizza }, // uncomment when pizza icon ready
-];
-
-const restaurants = [
-  {
-    id: 1,
-    name: "Rose Garden Restaurant",
-    subtitle: "Burger · Chicken · Rice · Wings",
-    rating: 4.7,
-    isFree: true,
-    time: "20 min",
-    image:
-      "https://images.pexels.com/photos/1437267/pexels-photo-1437267.jpeg?auto=compress&cs=tinysrgb&w=800",
-  },
-  {
-    id: 2,
-    name: "Tasty Treat",
-    subtitle: "Burger · Fast Food",
-    rating: 4.5,
-    isFree: true,
-    time: "15 min",
-    image:
-      "https://images.pexels.com/photos/1633578/pexels-photo-1633578.jpeg?auto=compress&cs=tinysrgb&w=800",
-  },
-  {
-    id: 3,
-    name: "Spicy Hub",
-    subtitle: "Pizza · Pasta · Grill",
-    rating: 4.6,
-    isFree: false,
-    time: "25 min",
-    image:
-      "https://images.pexels.com/photos/2232/vegetables-italian-pizza-restaurant.jpg?auto=compress&cs=tinysrgb&w=800",
-  },
-];
-
 export default function HomeScreen() {
   const [activeCategory, setActiveCategory] = useState("All");
+  const [categories, setCategories] = useState([]);
+  const [restaurants, setRestaurants] = useState([]);
+  const [allRestaurants, setAllRestaurants] = useState([]); // Store all for filtering
+  const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false); // For menu dropdown
   const navigate = useNavigate();
 
-  const handleRestaurantClick = (id) => {
-    // later you can use id in route, e.g. /restaurant-view/:id
-    navigate("/restaurant-view");
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await api.get("customer/home/");
+        // Transform backend categories
+        const backendCategories = response.data.categories.map(c => ({
+          id: c.id,
+          label: c.name,
+          image: c.icon || catAll
+        }));
+
+        // Add "All" category manually
+        setCategories([{ id: 0, label: "All", image: catAll }, ...backendCategories]);
+
+        // Transform restaurants
+        const backendRestaurants = response.data.nearby_restaurants.map(r => ({
+          id: r.id,
+          name: r.name,
+          subtitle: r.cuisine,
+          rating: r.rating,
+          isFree: r.delivery_time === "Free",
+          time: r.delivery_time,
+          image: r.banner || "https://images.pexels.com/photos/1633578/pexels-photo-1633578.jpeg?auto=compress&cs=tinysrgb&w=800"
+        }));
+        setRestaurants(backendRestaurants);
+        setAllRestaurants(backendRestaurants);
+      } catch (error) {
+        console.error("Error fetching home data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Filter restaurants when category changes
+  useEffect(() => {
+    if (activeCategory === "All") {
+      setRestaurants(allRestaurants);
+    } else {
+      // Simple filtering by subtitle/cuisine matching category label
+      // In a real app, you might want a more robust filter or backend query
+      const filtered = allRestaurants.filter(r =>
+        r.subtitle.toLowerCase().includes(activeCategory.toLowerCase())
+      );
+      setRestaurants(filtered);
+    }
+  }, [activeCategory, allRestaurants]);
+
+  const handleRestaurantClick = (restaurant) => {
+    navigate("/restaurant-view", { state: { restaurant } });
   };
+
+  const handleMenuClick = () => {
+    // Toggle menu or navigate to profile
+    // For now, let's just show a simple alert or log
+    // alert("Menu clicked! Profile feature coming soon.");
+    setMenuOpen(!menuOpen);
+  };
+
+  if (loading) {
+    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>;
+  }
 
   return (
     <div
@@ -80,6 +106,7 @@ export default function HomeScreen() {
           borderRadius: 32,
           boxShadow: "0 18px 40px rgba(0,0,0,0.12)",
           padding: "20px 18px 24px",
+          position: "relative"
         }}
       >
         {/* Top row: menu + location + cart */}
@@ -95,6 +122,7 @@ export default function HomeScreen() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {/* Three-line menu button */}
             <button
+              onClick={handleMenuClick}
               style={{
                 width: 36,
                 height: 36,
@@ -107,36 +135,32 @@ export default function HomeScreen() {
                 alignItems: "center",
                 gap: 3,
                 cursor: "pointer",
+                position: "relative"
               }}
             >
-              <span
-                style={{
-                  width: 14,
-                  height: 2,
-                  borderRadius: 999,
-                  background: "#333",
-                }}
-              />
-              <span
-                style={{
-                  width: 18,
-                  height: 2,
-                  borderRadius: 999,
-                  background: "#333",
-                }}
-              />
-              <span
-                style={{
-                  width: 14,
-                  height: 2,
-                  borderRadius: 999,
-                  background: "#333",
-                }}
-              />
+              <span style={{ width: 14, height: 2, borderRadius: 999, background: "#333" }} />
+              <span style={{ width: 18, height: 2, borderRadius: 999, background: "#333" }} />
+              <span style={{ width: 14, height: 2, borderRadius: 999, background: "#333" }} />
+
+              {menuOpen && (
+                <div style={{
+                  position: "absolute",
+                  top: 40,
+                  left: 0,
+                  background: "#fff",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  borderRadius: 8,
+                  padding: "8px 0",
+                  zIndex: 10,
+                  minWidth: 120
+                }}>
+                  <div onClick={() => navigate('/login')} style={{ padding: "8px 16px", fontSize: "0.9rem", color: "#333" }}>Logout</div>
+                </div>
+              )}
             </button>
 
             {/* Location text */}
-            <div>
+            <div onClick={() => navigate('/location')} style={{ cursor: 'pointer' }}>
               <div
                 style={{
                   fontSize: "0.7rem",
@@ -210,6 +234,7 @@ export default function HomeScreen() {
 
         {/* Search bar */}
         <div
+          onClick={() => navigate('/search')}
           style={{
             display: "flex",
             alignItems: "center",
@@ -218,6 +243,7 @@ export default function HomeScreen() {
             padding: "10px 12px",
             borderRadius: 18,
             marginBottom: 20,
+            cursor: "pointer"
           }}
         >
           <span role="img" aria-label="search">
@@ -225,12 +251,14 @@ export default function HomeScreen() {
           </span>
           <input
             placeholder="Search dishes, restaurants"
+            readOnly // Make it read-only so click triggers navigation
             style={{
               flex: 1,
               border: "none",
               outline: "none",
               background: "transparent",
               fontSize: "0.9rem",
+              cursor: "pointer"
             }}
           />
         </div>
@@ -249,6 +277,7 @@ export default function HomeScreen() {
               All Categories
             </span>
             <button
+              onClick={() => navigate('/search')} // Navigate to search/categories
               style={{
                 border: "none",
                 background: "transparent",
@@ -296,6 +325,7 @@ export default function HomeScreen() {
               Open Restaurants
             </span>
             <button
+              onClick={() => navigate('/restaurant-view')}
               style={{
                 border: "none",
                 background: "transparent",
@@ -319,21 +349,27 @@ export default function HomeScreen() {
               paddingRight: 4,
             }}
           >
-            {restaurants.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => handleRestaurantClick(r.id)}
-                style={{
-                  border: "none",
-                  padding: 0,
-                  textAlign: "left",
-                  background: "transparent",
-                  cursor: "pointer",
-                }}
-              >
-                <RestaurantCard restaurant={r} />
-              </button>
-            ))}
+            {restaurants.length > 0 ? (
+              restaurants.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => handleRestaurantClick(r)}
+                  style={{
+                    border: "none",
+                    padding: 0,
+                    textAlign: "left",
+                    background: "transparent",
+                    cursor: "pointer",
+                  }}
+                >
+                  <RestaurantCard restaurant={r} />
+                </button>
+              ))
+            ) : (
+              <div style={{ color: "#999", textAlign: "center", padding: "20px" }}>
+                No restaurants found in this category.
+              </div>
+            )}
           </div>
         </div>
       </div>
