@@ -95,6 +95,7 @@ export default function HomeScreen() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {/* Three-line menu button */}
             <button
+            onClick={() => navigate("/menu")}
               style={{
                 width: 36,
                 height: 36,
