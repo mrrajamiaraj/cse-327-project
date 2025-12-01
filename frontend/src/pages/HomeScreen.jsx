@@ -19,6 +19,7 @@ export default function HomeScreen() {
   const [allRestaurants, setAllRestaurants] = useState([]); // Store all for filtering
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false); // For menu dropdown
+  const [userProfile, setUserProfile] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -54,7 +55,17 @@ export default function HomeScreen() {
       }
     };
 
+    const fetchProfile = async () => {
+      try {
+        const response = await api.get('auth/profile/');
+        setUserProfile(response.data);
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+      }
+    };
+
     fetchData();
+    fetchProfile();
   }, []);
 
   // Filter restaurants when category changes
@@ -143,18 +154,89 @@ export default function HomeScreen() {
               <span style={{ width: 14, height: 2, borderRadius: 999, background: "#333" }} />
 
               {menuOpen && (
-                <div style={{
-                  position: "absolute",
-                  top: 40,
-                  left: 0,
-                  background: "#fff",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-                  borderRadius: 8,
-                  padding: "8px 0",
-                  zIndex: 10,
-                  minWidth: 120
-                }}>
-                  <div onClick={() => navigate('/login')} style={{ padding: "8px 16px", fontSize: "0.9rem", color: "#333" }}>Logout</div>
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 45,
+                    left: 0,
+                    background: "#fff",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    borderRadius: 12,
+                    padding: "12px",
+                    zIndex: 10,
+                    minWidth: 220,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Profile Info */}
+                  <div style={{ padding: "8px", borderBottom: "1px solid #eee", marginBottom: 8 }}>
+                    <div style={{ fontWeight: 600, fontSize: "0.95rem", marginBottom: 4 }}>
+                      {userProfile?.first_name || userProfile?.email || "User"}
+                    </div>
+                    <div style={{ fontSize: "0.8rem", color: "#666" }}>
+                      {userProfile?.email}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "#999", marginTop: 4 }}>
+                      Role: {userProfile?.role || "customer"}
+                    </div>
+                  </div>
+
+                  {/* Menu Options */}
+                  <div
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate('/profile');
+                    }}
+                    style={{
+                      padding: "10px 8px",
+                      fontSize: "0.9rem",
+                      color: "#333",
+                      cursor: "pointer",
+                      borderRadius: 6,
+                    }}
+                    onMouseEnter={(e) => e.target.style.background = "#f5f5f5"}
+                    onMouseLeave={(e) => e.target.style.background = "transparent"}
+                  >
+                    👤 View Profile
+                  </div>
+                  <div
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate('/orders');
+                    }}
+                    style={{
+                      padding: "10px 8px",
+                      fontSize: "0.9rem",
+                      color: "#333",
+                      cursor: "pointer",
+                      borderRadius: 6,
+                    }}
+                    onMouseEnter={(e) => e.target.style.background = "#f5f5f5"}
+                    onMouseLeave={(e) => e.target.style.background = "transparent"}
+                  >
+                    📦 My Orders
+                  </div>
+                  <div
+                    onClick={() => {
+                      localStorage.removeItem('token');
+                      setMenuOpen(false);
+                      navigate('/login');
+                    }}
+                    style={{
+                      padding: "10px 8px",
+                      fontSize: "0.9rem",
+                      color: "#ff4444",
+                      cursor: "pointer",
+                      borderRadius: 6,
+                      borderTop: "1px solid #eee",
+                      marginTop: 8,
+                      paddingTop: 12,
+                    }}
+                    onMouseEnter={(e) => e.target.style.background = "#fff5f5"}
+                    onMouseLeave={(e) => e.target.style.background = "transparent"}
+                  >
+                    🚪 Logout
+                  </div>
                 </div>
               )}
             </button>
