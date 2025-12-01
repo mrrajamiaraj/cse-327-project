@@ -1,7 +1,33 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../services/api";
 
 export default function PersonalInfo() {
   const navigate = useNavigate();
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await api.get('auth/profile/');
+        setUserProfile(response.data);
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <div
@@ -106,8 +132,9 @@ export default function PersonalInfo() {
                 height: 60,
                 borderRadius: "50%",
                 overflow: "hidden",
-                background:
-                  "url(https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=400) center/cover",
+                background: userProfile?.avatar 
+                  ? `url(${userProfile.avatar}) center/cover`
+                  : "url(https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=400) center/cover",
               }}
             />
             <div>
@@ -118,10 +145,10 @@ export default function PersonalInfo() {
                   marginBottom: 2,
                 }}
               >
-                Md. Raja Mia Raj
+                {userProfile?.first_name || userProfile?.email || "User"}
               </div>
               <div style={{ fontSize: "0.75rem", color: "#999" }}>
-                I love fast food
+                {userProfile?.role === 'customer' ? 'Customer' : userProfile?.role}
               </div>
             </div>
           </div>
@@ -138,19 +165,25 @@ export default function PersonalInfo() {
             <InfoRow
               icon="👤"
               label="FULL NAME"
-              value="Md. Raja Mia Raj"
+              value={userProfile?.first_name || "Not set"}
             />
             {/* Email */}
             <InfoRow
               icon="✉️"
               label="EMAIL"
-              value="raja.raj@northsouth.edu"
+              value={userProfile?.email || "Not set"}
             />
-            {/* Phone */}
+            {/* Role */}
             <InfoRow
-              icon="📞"
-              label="PHONE NUMBER"
-              value="+8801642215402"
+              icon="🎭"
+              label="ROLE"
+              value={userProfile?.role || "customer"}
+            />
+            {/* User ID */}
+            <InfoRow
+              icon="🆔"
+              label="USER ID"
+              value={`#${userProfile?.id || "N/A"}`}
               noBorder
             />
           </div>

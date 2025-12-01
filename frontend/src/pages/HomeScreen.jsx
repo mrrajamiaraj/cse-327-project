@@ -70,17 +70,39 @@ export default function HomeScreen() {
 
   // Filter restaurants when category changes
   useEffect(() => {
-    if (activeCategory === "All") {
-      setRestaurants(allRestaurants);
-    } else {
-      // Simple filtering by subtitle/cuisine matching category label
-      // In a real app, you might want a more robust filter or backend query
-      const filtered = allRestaurants.filter(r =>
-        r.subtitle.toLowerCase().includes(activeCategory.toLowerCase())
-      );
-      setRestaurants(filtered);
-    }
-  }, [activeCategory, allRestaurants]);
+    const filterRestaurants = async () => {
+      if (activeCategory === "All") {
+        setRestaurants(allRestaurants);
+      } else {
+        // Fetch all foods to see which restaurants have items in this category
+        try {
+          const foodsResponse = await api.get('customer/food/');
+          const selectedCategory = categories.find(c => c.label === activeCategory);
+          
+          // Find foods that belong to the selected category
+          const foodsInCategory = foodsResponse.data.filter(food => 
+            food.category === selectedCategory?.id
+          );
+          
+          // Get unique restaurant IDs from those foods
+          const restaurantIds = [...new Set(foodsInCategory.map(food => food.restaurant))];
+          
+          // Filter restaurants that have foods in this category
+          const filtered = allRestaurants.filter(r => restaurantIds.includes(r.id));
+          setRestaurants(filtered);
+        } catch (error) {
+          console.error("Error filtering restaurants:", error);
+          // Fallback to cuisine-based filtering
+          const filtered = allRestaurants.filter(r =>
+            r.subtitle.toLowerCase().includes(activeCategory.toLowerCase())
+          );
+          setRestaurants(filtered);
+        }
+      }
+    };
+    
+    filterRestaurants();
+  }, [activeCategory, allRestaurants, categories]);
 
   const handleRestaurantClick = (restaurant) => {
     navigate("/restaurant-view", { state: { restaurant } });
@@ -185,7 +207,7 @@ export default function HomeScreen() {
                   <div
                     onClick={() => {
                       setMenuOpen(false);
-                      navigate('/profile');
+                      navigate('/personal-info');
                     }}
                     style={{
                       padding: "10px 8px",
