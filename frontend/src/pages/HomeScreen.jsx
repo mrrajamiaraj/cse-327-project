@@ -20,6 +20,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false); // For menu dropdown
   const [userProfile, setUserProfile] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -66,6 +67,12 @@ export default function HomeScreen() {
 
     fetchData();
     fetchProfile();
+
+    // Load location from localStorage
+    const savedLocation = localStorage.getItem('userLocation');
+    if (savedLocation) {
+      setUserLocation(JSON.parse(savedLocation));
+    }
   }, []);
 
   // Filter restaurants when category changes
@@ -278,11 +285,18 @@ export default function HomeScreen() {
                   display: "flex",
                   alignItems: "center",
                   gap: 4,
-                  fontSize: "0.9rem",
+                  fontSize: "0.85rem",
                   color: "#444",
+                  maxWidth: "180px",
                 }}
               >
-                <span>NSU Campus</span>
+                <span style={{ 
+                  overflow: "hidden", 
+                  textOverflow: "ellipsis", 
+                  whiteSpace: "nowrap" 
+                }}>
+                  {userLocation?.address || "NSU Campus"}
+                </span>
                 <span style={{ fontSize: "0.9rem" }}>▼</span>
               </div>
             </div>
