@@ -682,6 +682,32 @@ export default function HomeScreen() {
                 );
               })}
 
+              {/* Use Current Location Button */}
+              <button
+                onClick={() => {
+                  setShowAddressModal(false);
+                  navigate('/location');
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: ORANGE,
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                  marginTop: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                📍 Use Current Location
+              </button>
+
               {/* Add New Address Button */}
               <button
                 onClick={() => {
