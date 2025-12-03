@@ -18,6 +18,8 @@ export default function RestaurantView() {
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("All");
   const [loading, setLoading] = useState(true);
+  const [quantities, setQuantities] = useState({}); // Track quantity for each food item
+  const [expandedItems, setExpandedItems] = useState({}); // Track which items are expanded
 
   useEffect(() => {
     const fetchRestaurantData = async () => {
@@ -52,11 +54,10 @@ export default function RestaurantView() {
   // Fallback if no restaurant passed (e.g. direct access)
   const displayRestaurant = restaurantDetails || restaurant || {
     name: "Spicy Restaurant",
-    subtitle: "Best spicy foods",
+    cuisine: "Best spicy foods",
     rating: 4.8,
-    time: "25 min",
-    isFree: true,
-    image: coverImg
+    delivery_time: "25 min",
+    banner: coverImg
   };
 
   // Filter foods by active category
@@ -65,17 +66,44 @@ export default function RestaurantView() {
     : foodItems.filter(food => food.category?.name === activeCategory);
 
   const handleAddToCart = async (foodId) => {
+    const quantity = quantities[foodId] || 1;
     try {
-      await api.post('customer/cart/', {
+      const response = await api.post('customer/cart/', {
         food_id: foodId,
-        quantity: 1,
+        quantity: quantity,
         variants: [],
         addons: []
       });
-      alert("Added to cart!");
+      console.log("Item added to cart:", response.data);
+      alert(`✓ Added ${quantity} item(s) to cart!`);
+      // Reset quantity after adding
+      setQuantities(prev => ({ ...prev, [foodId]: 1 }));
     } catch (error) {
       console.error("Error adding to cart:", error);
-      alert("Failed to add to cart");
+      const errorMsg = error.response?.data?.error || error.response?.data?.detail || "Failed to add to cart";
+      alert(`Error: ${errorMsg}`);
+    }
+  };
+
+  const updateQuantity = (foodId, delta) => {
+    setQuantities(prev => {
+      const current = prev[foodId] || 1;
+      const newQty = current + delta;
+      
+      // If quantity reaches 0, collapse back to initial state
+      if (newQty < 1) {
+        setExpandedItems(prevExp => ({ ...prevExp, [foodId]: false }));
+        return { ...prev, [foodId]: 1 };
+      }
+      
+      return { ...prev, [foodId]: newQty };
+    });
+  };
+
+  const toggleExpanded = (foodId) => {
+    setExpandedItems(prev => ({ ...prev, [foodId]: true }));
+    if (!quantities[foodId]) {
+      setQuantities(prev => ({ ...prev, [foodId]: 1 }));
     }
   };
 
@@ -132,7 +160,7 @@ export default function RestaurantView() {
             ←
           </button>
 
-          <span style={{ fontSize: "1.1rem", fontWeight: 600 }}>
+          <span style={{ fontSize: "1.1rem", fontWeight: 600, color: "#222" }}>
             Restaurant View
           </span>
 
@@ -154,7 +182,7 @@ export default function RestaurantView() {
         {/* cover image */}
         <div style={{ padding: "0 20px", marginBottom: 10 }}>
           <img
-            src={displayRestaurant.image || coverImg}
+            src={displayRestaurant.banner || coverImg}
             alt="restaurant"
             style={{
               width: "100%",
@@ -168,7 +196,7 @@ export default function RestaurantView() {
         {/* text section */}
         <div style={{ padding: "0 20px" }}>
           <div
-            style={{ fontWeight: 700, fontSize: "1.2rem", marginBottom: 6 }}
+            style={{ fontWeight: 700, fontSize: "1.2rem", marginBottom: 6, color: "#222" }}
           >
             {displayRestaurant.name}
           </div>
@@ -181,7 +209,7 @@ export default function RestaurantView() {
               marginBottom: 14,
             }}
           >
-            {displayRestaurant.subtitle || "Delicious food waiting for you."}
+            {displayRestaurant.cuisine || "Delicious food waiting for you."}
           </p>
 
           {/* rating row */}
@@ -195,15 +223,15 @@ export default function RestaurantView() {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ color: ORANGE }}>⭐</span>
-              <strong>{displayRestaurant.rating}</strong>
+              <strong style={{ color: "#333" }}>{displayRestaurant.rating || "0.0"}</strong>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span>⏱</span> {displayRestaurant.time}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#555" }}>
+              <span>⏱</span> {displayRestaurant.delivery_time || "30 min"}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span>🚚</span> {displayRestaurant.isFree ? "Free delivery" : "Delivery fees apply"}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#555" }}>
+              <span>🚚</span> Free delivery
             </div>
           </div>
 
@@ -224,11 +252,13 @@ export default function RestaurantView() {
                   padding: "8px 18px",
                   borderRadius: 20,
                   border: cat === activeCategory ? "none" : "1px solid #ddd",
-                  background: cat === activeCategory ? ORANGE : "#fff",
+                  background: cat === activeCategory ? ORANGE : "#f9f9f9",
                   color: cat === activeCategory ? "#fff" : "#333",
                   fontSize: "0.85rem",
+                  fontWeight: cat === activeCategory ? 600 : 500,
                   cursor: "pointer",
                   whiteSpace: "nowrap",
+                  transition: "all 0.2s ease",
                 }}
               >
                 {cat}
@@ -243,6 +273,7 @@ export default function RestaurantView() {
             padding: "0 20px",
             fontSize: "1.05rem",
             fontWeight: 600,
+            color: "#222",
             margin: "16px 0 10px",
           }}
         >
@@ -289,47 +320,134 @@ export default function RestaurantView() {
                       fontWeight: 600,
                       marginBottom: 4,
                       fontSize: "0.95rem",
+                      color: "#222",
                     }}
                   >
                     {item.name}
                   </div>
 
-                  <div style={{ color: "#777", fontSize: "0.75rem" }}>
+                  <div style={{ color: "#666", fontSize: "0.75rem" }}>
                     {item.description?.substring(0, 30)}...
                   </div>
 
-                  <div
-                    style={{
-                      marginTop: 10,
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <span
+                  <div style={{ marginTop: 10 }}>
+                    <div
                       style={{
-                        fontWeight: 700,
-                        color: "#000",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 6,
                       }}
                     >
-                      ৳{item.price}
-                    </span>
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          color: "#000",
+                          fontSize: "0.9rem",
+                        }}
+                      >
+                        ৳{item.price}
+                      </span>
 
-                    <button
-                      onClick={() => handleAddToCart(item.id)}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        background: ORANGE,
-                        borderRadius: "50%",
-                        border: "none",
-                        color: "#fff",
-                        fontSize: "1.2rem",
-                        cursor: "pointer",
-                      }}
-                    >
-                      +
-                    </button>
+                      {!expandedItems[item.id] && (
+                        <button
+                          onClick={() => toggleExpanded(item.id)}
+                          style={{
+                            width: 26,
+                            height: 26,
+                            background: ORANGE,
+                            borderRadius: "50%",
+                            border: "none",
+                            color: "#fff",
+                            fontSize: "1rem",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+
+                    {expandedItems[item.id] && (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 8,
+                            background: "#f5f5f5",
+                            borderRadius: 16,
+                            padding: "4px 8px",
+                          }}
+                        >
+                          <button
+                            onClick={() => updateQuantity(item.id, -1)}
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: "50%",
+                              border: "none",
+                              background: "#fff",
+                              color: "#333",
+                              fontSize: "0.85rem",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            −
+                          </button>
+                          <span style={{ fontSize: "0.8rem", fontWeight: 600, minWidth: 16, textAlign: "center" }}>
+                            {quantities[item.id] || 1}
+                          </span>
+                          <button
+                            onClick={() => updateQuantity(item.id, 1)}
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: "50%",
+                              border: "none",
+                              background: "#fff",
+                              color: "#333",
+                              fontSize: "0.85rem",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => handleAddToCart(item.id)}
+                          style={{
+                            padding: "6px 12px",
+                            background: ORANGE,
+                            borderRadius: 12,
+                            border: "none",
+                            color: "#fff",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            width: "100%",
+                          }}
+                        >
+                          ADD TO CART
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Your payment - GOV.UK</title>
+  <style>
+    /* --------- RESET / BASE --------- */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      background: #f3f2f1;
+      color: #0b0c0c;
+    }
+
+    a {
+      color: #1d70b8;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* --------- TOP BLACK BAR --------- */
+    .govuk-header {
+      background: #0b0c0c;
+      color: #fff;
+      padding: 8px 0;
+    }
+
+    .govuk-header__container {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .govuk-header__logo {
+      font-weight: bold;
+      font-size: 22px;
+    }
+
+    .govuk-header__service-name {
+      margin-left: 12px;
+      font-size: 18px;
+    }
+
+    .govuk-header__user {
+      font-size: 14px;
+    }
+
+    .govuk-header__logo span {
+      display: inline-block;
+      background: #1d70b8;
+      padding: 2px 4px;
+      margin-right: 6px;
+      font-size: 14px;
+    }
+
+    /* --------- MAIN LAYOUT --------- */
+    .govuk-main {
+      max-width: 960px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px 30px 40px;
+    }
+
+    .back-link {
+      margin-bottom: 15px;
+      display: inline-block;
+      font-size: 14px;
+    }
+
+    /* --------- STEPS / PROGRESS --------- */
+    .steps {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 25px;
+      font-size: 14px;
+    }
+
+    .step {
+      color: #505a5f;
+    }
+
+    .step__number {
+      font-weight: bold;
+    }
+
+    .step--current {
+      font-weight: bold;
+    }
+
+    /* --------- PAGE TITLE --------- */
+    .page-title {
+      font-size: 32px;
+      margin-bottom: 20px;
+    }
+
+    /* --------- ERROR BOX --------- */
+    .error-box {
+      border: 5px solid #d4351c;
+      background: #f3f2f1;
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+
+    .error-box__title {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .error-box__body {
+      font-size: 16px;
+    }
+
+    /* --------- PAYMENT SUMMARY --------- */
+    .section-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      margin-top: 10px;
+    }
+
+    .payment-summary {
+      border-bottom: 1px solid #b1b4b6;
+      padding-bottom: 10px;
+      margin-bottom: 25px;
+      font-size: 16px;
+    }
+
+    .payment-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    .payment-row strong {
+      font-weight: bold;
+    }
+
+    /* --------- WARNING SECTION --------- */
+    .warning-section {
+      border-top: 1px solid #b1b4b6;
+      padding-top: 20px;
+      font-size: 16px;
+    }
+
+    .warning-title {
+      font-weight: bold;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .warning-icon {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid #0b0c0c;
+      text-align: center;
+      line-height: 14px;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .warning-text {
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP BLACK GOV.UK BAR -->
+  <header class="govuk-header">
+    <div class="govuk-header__container">
+      <div>
+        <span class="govuk-header__logo">
+          <span>GOV.UK</span>
+        </span>
+        <span class="govuk-header__service-name">Visas and Immigration</span>
+      </div>
+      <div class="govuk-header__user">
+        MD RAJA MIA RAJ
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="govuk-main">
+    <!-- Back link -->
+    <a href="#" class="back-link">&lt; Back</a>
+
+    <!-- Steps -->
+    <div class="steps">
+      <div class="step"><span class="step__number">1.</span> Start</div>
+      <div class="step"><span class="step__number">2.</span> Application</div>
+      <div class="step"><span class="step__number">3.</span> Documents</div>
+      <div class="step"><span class="step__number">4.</span> Declaration</div>
+      <div class="step step--current"><span class="step__number">5.</span> Pay</div>
+      <div class="step"><span class="step__number">6.</span> Further actions</div>
+    </div>
+
+    <!-- Title -->
+    <h1 class="page-title">Your payment</h1>
+
+    <!-- Error message box -->
+    <div class="error-box">
+      <div class="error-box__title">
+        The payment was refused by your card provider
+      </div>
+      <p class="error-box__body">
+        This could be because you do not have sufficient funds, or you entered your
+        card details incorrectly. Please try again.
+      </p>
+    </div>
+
+    <!-- Payment summary -->
+    <div class="section-title">You are paying</div>
+    <div class="payment-summary">
+      <div class="payment-row">
+        <span>87102.00 BDT – MD RAJA MIA RAJ's application for Student visa</span>
+        <strong>87102.00 BDT</strong>
+      </div>
+    </div>
+
+    <!-- Warning section -->
+    <div class="warning-section">
+      <div class="warning-title">
+        <span class="warning-icon">!</span>
+        <span>Before you continue</span>
+      </div>
+      <p class="warning-text">
+        You should only move to the next page if you have checked your answers and you are
+        ready to submit your application. Once you select ‘Continue to Worldpay’ you will not
+        be able to return and edit your answers.
+      </p>
+    </div>
+
+  </main>
+</body>
+</html>

@@ -1,7 +1,6 @@
  import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
-import api from "../services/api";
 import locationImg from "../assets/location.png";
 
 const ORANGE = "#ff7a00";
@@ -79,21 +78,7 @@ export default function LocationAccess() {
     }
   };
 
-  const saveLocationToBackend = async (lat, lng, addressText) => {
-    try {
-      const response = await api.post("customer/addresses/", {
-        title: "Current Location",
-        address: addressText,
-        lat: lat,
-        lng: lng,
-        is_default: true,
-      });
-      console.log("Location saved to backend:", response.data);
-    } catch (error) {
-      console.error("Error saving location to backend:", error.response?.data || error.message);
-      // Don't block the user if backend save fails
-    }
-  };
+
 
   const requestLocation = () => {
     setLoading(true);
@@ -129,10 +114,11 @@ export default function LocationAccess() {
         setAddress(addressText);
         setShowMap(true);
 
+        // Store in sessionStorage (cleared when browser closes) - NOT saved to database
+        sessionStorage.setItem("currentSessionLocation", JSON.stringify(locationData));
+        
+        // Also keep in localStorage for convenience
         localStorage.setItem("userLocation", JSON.stringify(locationData));
-
-        // Save to backend
-        await saveLocationToBackend(latitude, longitude, addressText);
 
         setLoading(false);
       },

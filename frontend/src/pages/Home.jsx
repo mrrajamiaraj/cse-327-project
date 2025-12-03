@@ -12,7 +12,7 @@ export default function Home() {
 
   return (
     <div style={{ padding: "20px" }}>
-      <h1>Home – Menu</h1>
+      <h1 style={{ color: "#222" }}>Home – Menu</h1>
       <p style={{ color: "#555", marginBottom: "16px" }}>
         Choose from popular items near you.
       </p>
@@ -35,11 +35,11 @@ export default function Home() {
               boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
             }}
           >
-            <h3 style={{ marginBottom: "4px" }}>{item.name}</h3>
+            <h3 style={{ marginBottom: "4px", color: "#222" }}>{item.name}</h3>
             <p style={{ fontSize: "0.85rem", color: "#777" }}>
               Category: {item.category}
             </p>
-            <p style={{ marginTop: "8px", fontWeight: "bold" }}>৳ {item.price}</p>
+            <p style={{ marginTop: "8px", fontWeight: "bold", color: "#222" }}>৳ {item.price}</p>
             <button
               style={{
                 marginTop: "10px",
@@ -82,8 +82,8 @@ export default function Home() {
               textAlign: "center",
             }}
           >
-            <h2>Special Discount!</h2>
-            <p style={{ marginTop: "8px" }}>
+            <h2 style={{ color: "#222" }}>Special Discount!</h2>
+            <p style={{ marginTop: "8px", color: "#555" }}>
               Use code <strong>CSE327</strong> to get{" "}
               <strong>20% OFF</strong> on your first order.
             </p>

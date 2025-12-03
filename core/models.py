@@ -76,24 +76,77 @@ class Restaurant(models.Model):
     owner = models.OneToOneField(User, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     banner = models.ImageField(upload_to='banners/', null=True)
-    cuisine = models.CharField(max_length=100)
-    rating = models.FloatField(default=0)
-    delivery_time = models.CharField(max_length=20)
+    cuisine = models.CharField(max_length=255, help_text="Restaurant cuisine type or description (e.g., Italian, Fast Food, Asian Fusion)")
+    # rating is now calculated from reviews, not stored
+    # delivery_time is now calculated based on distance
     is_approved = models.BooleanField(default=False)
     lat = models.FloatField(null=True)
     lng = models.FloatField(null=True)
+    prep_time_minutes = models.IntegerField(default=20, help_text="Average food preparation time in minutes")
 
     def __str__(self):
         return self.name
+    
+    def get_average_rating(self):
+        """Calculate average rating from all reviews for this restaurant's orders"""
+        from django.db.models import Avg
+        avg = Review.objects.filter(order__restaurant=self).aggregate(Avg('rating'))['rating__avg']
+        return round(avg, 1) if avg else 0.0
+    
+    def calculate_delivery_time(self, customer_lat, customer_lng):
+        """Calculate estimated delivery time based on distance"""
+        if not self.lat or not self.lng:
+            return "30 min"  # default fallback
+        
+        # Calculate distance using Haversine formula
+        from math import radians, sin, cos, sqrt, atan2
+        
+        R = 6371  # Earth's radius in kilometers
+        
+        lat1 = radians(self.lat)
+        lon1 = radians(self.lng)
+        lat2 = radians(customer_lat)
+        lon2 = radians(customer_lng)
+        
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1-a))
+        distance_km = R * c
+        
+        # Estimate delivery time: prep time + travel time (assuming 30 km/h average speed)
+        travel_time_minutes = (distance_km / 30) * 60
+        total_time = self.prep_time_minutes + travel_time_minutes
+        
+        return f"{int(total_time)} min"
 
 
 class Category(models.Model):
-    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
-    name = models.CharField(max_length=50)
-    icon = models.ImageField(upload_to='categories/', null=True)
-
+    """Global food categories shared across all restaurants (e.g., Pizza, Burger, Pasta)"""
+    name = models.CharField(max_length=50, unique=True, help_text="e.g., Pizza, Burger, Pasta, Salad")
+    icon = models.ImageField(upload_to='categories/', null=True, blank=True)
+    description = models.TextField(null=True, blank=True, help_text="Optional description of this category")
+    
     def __str__(self):
         return self.name
+    
+    class Meta:
+        verbose_name_plural = "Categories"
+        ordering = ['name']
+
+
+class Addon(models.Model):
+    """Addon items that can be added to food (e.g., Extra Cheese, Bacon, etc.)"""
+    name = models.CharField(max_length=100, help_text="e.g., Extra Cheese, Bacon, Avocado")
+    price = models.DecimalField(max_digits=10, decimal_places=2, help_text="Additional price for this addon")
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, help_text="Restaurant that offers this addon")
+    
+    def __str__(self):
+        return f"{self.name} (+৳{self.price})"
+    
+    class Meta:
+        ordering = ['name']
 
 
 class Food(models.Model):
@@ -105,7 +158,7 @@ class Food(models.Model):
     image = models.ImageField(upload_to='foods/')
     is_veg = models.BooleanField(default=True)
     ingredients = models.TextField(null=True)
-    addons = models.JSONField(default=list)
+    available_addons = models.ManyToManyField(Addon, blank=True, help_text="Select addons available for this food item")
 
     def __str__(self):
         return self.name

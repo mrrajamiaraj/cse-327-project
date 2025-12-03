@@ -28,7 +28,7 @@ export default function Burgers() {
           padding: "20px 18px 24px",
         }}
       >
-        <h2 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: 12 }}>
+        <h2 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: 12, color: "#222" }}>
           Popular Burgers
         </h2>
 
@@ -46,7 +46,7 @@ export default function Burgers() {
               }}
             >
               <div>
-                <div style={{ fontSize: "0.95rem", fontWeight: 600 }}>
+                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#222" }}>
                   {b.name}
                 </div>
                 <div style={{ fontSize: "0.8rem", color: "#777" }}>
@@ -54,7 +54,7 @@ export default function Burgers() {
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontWeight: 600 }}>৳ {b.price}</div>
+                <div style={{ fontWeight: 600, color: "#222" }}>৳ {b.price}</div>
                 <button
                   style={{
                     marginTop: 4,

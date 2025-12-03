@@ -33,7 +33,7 @@ export default function FoodDetails() {
 
         {/* Content */}
         <div style={{ padding: "18px 18px 24px" }}>
-          <h2 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: 4 }}>
+          <h2 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: 4, color: "#222" }}>
             Pizza Calzone
           </h2>
           <p style={{ fontSize: "0.85rem", color: "#777", marginBottom: 12 }}>
@@ -64,7 +64,7 @@ export default function FoodDetails() {
           >
             <div>
               <div style={{ fontSize: "0.8rem", color: "#999" }}>Price</div>
-              <div style={{ fontSize: "1.2rem", fontWeight: 700 }}>৳ 1280</div>
+              <div style={{ fontSize: "1.2rem", fontWeight: 700, color: "#222" }}>৳ 1280</div>
             </div>
 
             <button

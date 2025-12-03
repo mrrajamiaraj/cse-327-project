@@ -1,0 +1,14 @@
+Django
+djangorestframework
+django-cors-headers
+djangorestframework-simplejwt
+
+channels
+channels-redis
+
+drf-spectacular
+drf-spectacular-sidecar
+
+Pillow
+python-dotenv
+requests

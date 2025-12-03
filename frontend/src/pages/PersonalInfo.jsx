@@ -50,7 +50,7 @@ export default function PersonalInfo() {
           padding: "14px 14px 20px",
         }}
       >
-        {/* Top blue title */}
+        {/* Top title */}
         <div
           style={{
             fontSize: "0.9rem",
@@ -103,7 +103,9 @@ export default function PersonalInfo() {
               Personal Info
             </span>
 
+            {/* EDIT goes to /edit-profile */}
             <button
+              onClick={() => navigate("/edit-profile")}
               style={{
                 border: "none",
                 background: "transparent",
@@ -161,19 +163,16 @@ export default function PersonalInfo() {
               padding: "10px 12px",
             }}
           >
-            {/* Full name */}
             <InfoRow
               icon="👤"
               label="FULL NAME"
               value={userProfile?.first_name || "Not set"}
             />
-            {/* Email */}
             <InfoRow
               icon="✉️"
               label="EMAIL"
               value={userProfile?.email || "Not set"}
             />
-            {/* Role */}
             <InfoRow
               icon="🎭"
               label="ROLE"
