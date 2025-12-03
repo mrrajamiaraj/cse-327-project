@@ -19,6 +19,7 @@ import AddCard from "./pages/AddCard.jsx";
 
 
 
+
 // Main app pages
 import HomeScreen from "./pages/HomeScreen.jsx";
 import Cart from "./pages/Cart.jsx";
@@ -99,7 +100,7 @@ export default function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/location" element={<LocationAccess />} />
           <Route path="/payment" element={<Payment />} />
-          <Route path="/add-card" element={<AddCard />} />
+          
 
 
 
@@ -117,7 +118,6 @@ export default function App() {
           <Route path="/cart" element={<Cart />} />
           <Route path="/edit-cart" element={<EditCart />} />
           <Route path="/add-card" element={<AddCard />} />
-
 
 
 

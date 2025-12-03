@@ -45,11 +45,16 @@ export default function EditCart() {
     setItems((prev) => prev.filter((it) => it.id !== id));
   };
 
+  // DONE button (top-right)
   const handleDone = () => {
-    // later you can send updated items back / store globally
-    console.log("Edited cart items:", items);
     navigate(-1); // go back to normal cart
   };
+
+  // ⬇⬇⬇ IMPORTANT: same as Cart.jsx
+  const handlePlaceOrder = () => {
+    navigate("/payment", { state: { total } });
+  };
+  // ⬆⬆⬆
 
   return (
     <div
@@ -284,7 +289,7 @@ export default function EditCart() {
             </div>
           </div>
 
-          {/* white bottom sheet – same as normal cart */}
+          {/* white bottom sheet – same as Cart */}
           <div
             style={{
               background: "#fff",
@@ -332,6 +337,7 @@ export default function EditCart() {
               2118 Thornridge Cir, Syracuse
             </div>
 
+            {/* total */}
             <div
               style={{
                 display: "flex",
@@ -361,7 +367,9 @@ export default function EditCart() {
               </button>
             </div>
 
+            {/* PLACE ORDER – now works */}
             <button
+              onClick={handlePlaceOrder}
               style={{
                 width: "100%",
                 padding: "11px 0",
