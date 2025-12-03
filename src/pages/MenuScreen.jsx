@@ -6,15 +6,15 @@ const ORANGE = "#ff7a00";
 export default function MenuScreen() {
   const navigate = useNavigate();
 
-  // Handle clicks on any item
   const handleItemClick = (item) => {
-    if (item.label === "Personal Info") {
-      navigate("/personal-info");
-    }
-    // later you can add:
-    // else if (item.label === "Cart") navigate("/cart");
-    // etc.
-  };
+  if (item.label === "Personal Info") {
+    navigate("/personal-info");
+  } else if (item.label === "Addresses") {
+    navigate("/addresses");          // 👈 new connection
+  }
+  // you can add more later, e.g.:
+  // else if (item.label === "Cart") navigate("/cart");
+};
 
   return (
     <div

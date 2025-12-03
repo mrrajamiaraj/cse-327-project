@@ -8,6 +8,15 @@ import Signup from "./pages/Signup.jsx";
 import LocationAccess from "./pages/LocationAccess.jsx";
 import MenuScreen from "./pages/MenuScreen.jsx";
 import PersonalInfo from "./pages/PersonalInfo.jsx";
+import EditProfile from "./pages/EditProfile.jsx";
+import Addresses from "./pages/Addresses.jsx";
+import EditCart from "./pages/EditCart.jsx";
+import Payment from "./pages/Payment.jsx";
+import AddCard from "./pages/AddCard.jsx";
+
+
+
+
 
 
 // Main app pages
@@ -21,6 +30,9 @@ import Search from "./pages/Search.jsx";
 import Burgers from "./pages/Burgers.jsx";
 import FoodDetails from "./pages/FoodDetails.jsx";
 import RestaurantView from "./pages/RestaurantView.jsx";  // ✅ correct file
+import AddAddress from "./pages/AddAddress.jsx";
+
+
 
 export default function App() {
   const location = useLocation();
@@ -86,6 +98,10 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/location" element={<LocationAccess />} />
+          <Route path="/payment" element={<Payment />} />
+          <Route path="/add-card" element={<AddCard />} />
+
+
 
           {/* Main App Screens */}
           <Route path="/home" element={<HomeScreen />} />
@@ -94,6 +110,19 @@ export default function App() {
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/menu" element={<MenuScreen />} />
           <Route path="/personal-info" element={<PersonalInfo />} />
+          <Route path="/edit-profile" element={<EditProfile />} />
+          <Route path="/addresses" element={<Addresses />} />
+          <Route path="/addresses" element={<Addresses />} />
+          <Route path="/add-address" element={<AddAddress />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/edit-cart" element={<EditCart />} />
+          <Route path="/add-card" element={<AddCard />} />
+
+
+
+
+
+          
 
 
           {/* Other features */}
