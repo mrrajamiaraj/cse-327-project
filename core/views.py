@@ -110,7 +110,7 @@ class HomeView(viewsets.ViewSet):
         banners = [{'id': 1, 'image': 'banner.jpg'}]
         popular_foods = Food.objects.order_by('-id')[:5]
         nearby_restaurants = Restaurant.objects.filter(is_approved=True)[:5]
-        categories = Category.objects.all()[:10]
+        categories = Category.objects.all()  # Return all categories
         return Response({
             'banners': banners,
             'popular_foods': FoodSerializer(popular_foods, many=True, context={'request': request}).data,
@@ -132,23 +132,47 @@ class CartViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def list(self, request):
+        from decimal import Decimal
         cart, _ = Cart.objects.get_or_create(user=request.user)
-        serializer = CartSerializer(cart)
+        serializer = CartSerializer(cart, context={'request': request})
         data = serializer.data
         data['delivery_fee'] = 5.00
-        data['total'] = data['subtotal'] + data['delivery_fee']
+        data['total'] = float(data['subtotal']) + data['delivery_fee']
         return Response(data)
 
     def create(self, request):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         food = get_object_or_404(Food, id=request.data['food_id'])
         item, created = CartItem.objects.get_or_create(cart=cart, food=food)
-        if not created:
+        if created:
+            # New item - set initial quantity
+            item.quantity = request.data.get('quantity', 1)
+        else:
+            # Existing item - increase quantity
             item.quantity += request.data.get('quantity', 1)
         item.variants = request.data.get('variants', [])
         item.addons = request.data.get('addons', [])
         item.save()
         return Response(CartSerializer(cart).data)
+
+    @action(detail=True, methods=['patch'])
+    def update_item(self, request, pk=None):
+        """Update cart item quantity"""
+        cart_item = get_object_or_404(CartItem, id=pk, cart__user=request.user)
+        quantity = request.data.get('quantity', cart_item.quantity)
+        if quantity < 1:
+            cart_item.delete()
+            return Response({'message': 'Item removed'})
+        cart_item.quantity = quantity
+        cart_item.save()
+        return Response(CartItemSerializer(cart_item).data)
+    
+    @action(detail=True, methods=['delete'])
+    def remove_item(self, request, pk=None):
+        """Remove item from cart"""
+        cart_item = get_object_or_404(CartItem, id=pk, cart__user=request.user)
+        cart_item.delete()
+        return Response({'message': 'Item removed'})
 
     @action(detail=False, methods=['delete'])
     def clear(self, request):

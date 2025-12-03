@@ -30,19 +30,71 @@ class UserSerializer(serializers.ModelSerializer):
 
 # Keep all other serializers exactly as they were
 class RestaurantSerializer(serializers.ModelSerializer):
+    rating = serializers.SerializerMethodField()
+    delivery_time = serializers.SerializerMethodField()
+    banner = serializers.SerializerMethodField()
+    
     class Meta:
         model = Restaurant
-        fields = '__all__'
+        fields = ['id', 'owner', 'name', 'banner', 'cuisine', 'rating', 'delivery_time', 
+                  'is_approved', 'lat', 'lng', 'prep_time_minutes']
+        read_only_fields = ['rating', 'delivery_time']
+    
+    def get_banner(self, obj):
+        """Return full URL for banner image"""
+        if obj.banner:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.banner.url)
+            return obj.banner.url
+        return None
+    
+    def get_rating(self, obj):
+        """Get calculated average rating from reviews"""
+        return obj.get_average_rating()
+    
+    def get_delivery_time(self, obj):
+        """Get calculated delivery time based on user's location"""
+        # Try to get customer location from context
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            # Try to get user's default address
+            try:
+                address = Address.objects.filter(user=request.user, is_default=True).first()
+                if address:
+                    return obj.calculate_delivery_time(address.lat, address.lng)
+            except:
+                pass
+        
+        # Fallback: use a default time
+        return f"{obj.prep_time_minutes + 10} min"
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = '__all__'
 
+class AddonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Addon
+        fields = ['id', 'name', 'price']
+
 class FoodSerializer(serializers.ModelSerializer):
+    available_addons = AddonSerializer(many=True, read_only=True)
+    image = serializers.SerializerMethodField()
+    
     class Meta:
         model = Food
         fields = '__all__'
+    
+    def get_image(self, obj):
+        """Return full URL for food image"""
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
 
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:

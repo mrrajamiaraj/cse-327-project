@@ -13,6 +13,8 @@ const GREY_BG = "#f3f3f3";
 const DARK_TEXT = "#222";
 
 export default function HomeScreen() {
+  const navigate = useNavigate();
+  
   const [activeCategory, setActiveCategory] = useState("All");
   const [categories, setCategories] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
@@ -21,7 +23,12 @@ export default function HomeScreen() {
   const [menuOpen, setMenuOpen] = useState(false); // For menu dropdown
   const [userProfile, setUserProfile] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
-  const navigate = useNavigate();
+  const [cartItemCount, setCartItemCount] = useState(0);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [addresses, setAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -67,13 +74,64 @@ export default function HomeScreen() {
 
     fetchData();
     fetchProfile();
+    fetchCartCount();
+    fetchAddresses();
 
-    // Load location from localStorage
-    const savedLocation = localStorage.getItem('userLocation');
-    if (savedLocation) {
-      setUserLocation(JSON.parse(savedLocation));
+    // Load selected delivery address
+    const savedAddressId = localStorage.getItem("selectedDeliveryAddressId");
+    if (savedAddressId) {
+      setSelectedAddressId(parseInt(savedAddressId));
+      const savedAddress = localStorage.getItem("selectedDeliveryAddress");
+      if (savedAddress) {
+        const addr = JSON.parse(savedAddress);
+        setUserLocation({ address: addr.title });
+      }
+    } else {
+      // Load current location from sessionStorage
+      const sessionLocation = sessionStorage.getItem('currentSessionLocation');
+      if (sessionLocation) {
+        setUserLocation(JSON.parse(sessionLocation));
+      }
     }
   }, []);
+
+  const fetchCartCount = async () => {
+    try {
+      const response = await api.get('customer/cart/');
+      const itemCount = response.data.items?.length || 0;
+      setCartItemCount(itemCount);
+    } catch (error) {
+      console.error("Error fetching cart count:", error);
+    }
+  };
+
+  const fetchAddresses = async () => {
+    try {
+      const response = await api.get('customer/addresses/');
+      setAddresses(response.data);
+    } catch (error) {
+      console.error("Error fetching addresses:", error);
+    }
+  };
+
+  const handleSelectAddress = (address) => {
+    localStorage.setItem("selectedDeliveryAddressId", address.id);
+    localStorage.setItem("selectedDeliveryAddress", JSON.stringify(address));
+    setSelectedAddressId(address.id);
+    setUserLocation({ address: address.title });
+    setShowAddressModal(false);
+  };
+
+  const handleSelectCurrentLocation = () => {
+    localStorage.removeItem("selectedDeliveryAddressId");
+    localStorage.removeItem("selectedDeliveryAddress");
+    setSelectedAddressId(null);
+    const sessionLocation = sessionStorage.getItem('currentSessionLocation');
+    if (sessionLocation) {
+      setUserLocation(JSON.parse(sessionLocation));
+    }
+    setShowAddressModal(false);
+  };
 
   // Filter restaurants when category changes
   useEffect(() => {
@@ -268,7 +326,7 @@ export default function HomeScreen() {
             </button>
 
             {/* Location text */}
-            <div onClick={() => navigate('/location')} style={{ cursor: 'pointer' }}>
+            <div onClick={() => setShowAddressModal(true)} style={{ cursor: 'pointer' }}>
               <div
                 style={{
                   fontSize: "0.7rem",
@@ -295,7 +353,7 @@ export default function HomeScreen() {
                   textOverflow: "ellipsis", 
                   whiteSpace: "nowrap" 
                 }}>
-                  {userLocation?.address || "NSU Campus"}
+                  {userLocation?.address || "Select Address"}
                 </span>
                 <span style={{ fontSize: "0.9rem" }}>▼</span>
               </div>
@@ -319,24 +377,26 @@ export default function HomeScreen() {
             onClick={() => navigate("/cart")}
           >
             <span style={{ fontSize: "1.1rem" }}>🛒</span>
-            <div
-              style={{
-                position: "absolute",
-                top: 4,
-                right: 4,
-                width: 18,
-                height: 18,
-                borderRadius: "50%",
-                background: ORANGE,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "0.7rem",
-                fontWeight: 700,
-              }}
-            >
-              2
-            </div>
+            {cartItemCount > 0 && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  width: 18,
+                  height: 18,
+                  borderRadius: "50%",
+                  background: ORANGE,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                }}
+              >
+                {cartItemCount}
+              </div>
+            )}
           </div>
         </div>
 
@@ -385,27 +445,39 @@ export default function HomeScreen() {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: 10,
+              marginBottom: 6,
             }}
           >
             <span style={{ fontWeight: 600, fontSize: "1rem", color: "#222" }}>
               All Categories
             </span>
             <button
-              onClick={() => navigate('/search')} // Navigate to search/categories
               style={{
                 border: "none",
                 background: "transparent",
                 color: "#999",
                 fontSize: "0.8rem",
-                cursor: "pointer",
+                cursor: "default",
+                pointerEvents: "none",
               }}
             >
               See All &gt;
             </button>
           </div>
+          
+          {/* Selected Category Indicator */}
+          {activeCategory !== "All" && (
+            <div style={{ marginBottom: 8 }}>
+              <span style={{ fontSize: "0.8rem", color: "#666" }}>
+                Showing:{" "}
+              </span>
+              <span style={{ fontSize: "0.8rem", color: ORANGE, fontWeight: 600 }}>
+                {activeCategory}
+              </span>
+            </div>
+          )}
 
-          {/* horizontal slider */}
+          {/* horizontal slider - show all categories */}
           <div
             style={{
               display: "flex",
@@ -487,6 +559,153 @@ export default function HomeScreen() {
             )}
           </div>
         </div>
+
+        {/* Address Selection Modal */}
+        {showAddressModal && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0,0,0,0.5)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 1000,
+            }}
+            onClick={() => setShowAddressModal(false)}
+          >
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 20,
+                padding: "20px",
+                maxWidth: 380,
+                width: "90%",
+                maxHeight: "80vh",
+                overflowY: "auto",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: "0 0 16px 0", fontSize: "1.1rem", color: "#333" }}>
+                Select Delivery Address
+              </h3>
+
+              {/* Current Location */}
+              {sessionStorage.getItem('currentSessionLocation') && (
+                <div
+                  onClick={handleSelectCurrentLocation}
+                  style={{
+                    background: selectedAddressId === null ? "#fff7f0" : "#f9f9f9",
+                    border: selectedAddressId === null ? `2px solid ${ORANGE}` : "1px solid #e5e7eb",
+                    borderRadius: 12,
+                    padding: "12px",
+                    marginBottom: 10,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: "1.2rem" }}>📍</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 2 }}>
+                        Current Location
+                      </div>
+                      <div style={{ fontSize: "0.75rem", color: "#666" }}>
+                        {JSON.parse(sessionStorage.getItem('currentSessionLocation')).address}
+                      </div>
+                    </div>
+                    {selectedAddressId === null && (
+                      <div style={{
+                        padding: "4px 8px",
+                        borderRadius: 6,
+                        background: ORANGE,
+                        color: "#fff",
+                        fontSize: "0.65rem",
+                        fontWeight: 600,
+                      }}>
+                        SELECTED
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Saved Addresses */}
+              {addresses.map((addr) => {
+                const isSelected = addr.id === selectedAddressId;
+                return (
+                  <div
+                    key={addr.id}
+                    onClick={() => handleSelectAddress(addr)}
+                    style={{
+                      background: isSelected ? "#fff7f0" : "#f9f9f9",
+                      border: isSelected ? `2px solid ${ORANGE}` : "1px solid #e5e7eb",
+                      borderRadius: 12,
+                      padding: "12px",
+                      marginBottom: 10,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: "1.2rem" }}>
+                        {addr.title === "Home" ? "🏠" : addr.title === "Work" ? "🏢" : "📍"}
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 2 }}>
+                          {addr.title}
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "#666" }}>
+                          {addr.address.includes("|||") 
+                            ? addr.address.split("|||").filter(Boolean).join(", ")
+                            : addr.address
+                          }
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <div style={{
+                          padding: "4px 8px",
+                          borderRadius: 6,
+                          background: ORANGE,
+                          color: "#fff",
+                          fontSize: "0.65rem",
+                          fontWeight: 600,
+                        }}>
+                          SELECTED
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Add New Address Button */}
+              <button
+                onClick={() => {
+                  setShowAddressModal(false);
+                  navigate('/add-address');
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: 10,
+                  border: `2px dashed ${ORANGE}`,
+                  background: "#fff",
+                  color: ORANGE,
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                  marginTop: 10,
+                }}
+              >
+                + Add New Address
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
