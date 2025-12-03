@@ -173,10 +173,6 @@ export default function PersonalInfo() {
               label="EMAIL"
               value={userProfile?.email || "Not set"}
             />
-<<<<<<< HEAD:frontend/src/pages/PersonalInfo.jsx
-            {/* Role */}
-=======
->>>>>>> raja:src/pages/PersonalInfo.jsx
             <InfoRow
               icon="🎭"
               label="ROLE"
