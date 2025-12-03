@@ -388,7 +388,7 @@ export default function HomeScreen() {
               marginBottom: 10,
             }}
           >
-            <span style={{ fontWeight: 600, fontSize: "1rem" }}>
+            <span style={{ fontWeight: 600, fontSize: "1rem", color: "#222" }}>
               All Categories
             </span>
             <button
@@ -436,7 +436,7 @@ export default function HomeScreen() {
               marginBottom: 10,
             }}
           >
-            <span style={{ fontWeight: 600, fontSize: "1rem" }}>
+            <span style={{ fontWeight: 600, fontSize: "1rem", color: "#222" }}>
               Open Restaurants
             </span>
             <button

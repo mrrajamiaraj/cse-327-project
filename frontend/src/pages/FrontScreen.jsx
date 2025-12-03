@@ -87,6 +87,7 @@ export default function FrontScreen() {
             fontWeight: 600,
             fontSize: "1.2rem",
             marginBottom: 8,
+            color: "#222",
           }}
         >
           {current.title}

@@ -31,7 +31,7 @@ export default function RestaurantView() {
         </div>
 
         <div style={{ padding: "18px 18px 24px" }}>
-          <h2 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: 4 }}>
+          <h2 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: 4, color: "#222" }}>
             Spicy Restaurant
           </h2>
           <p style={{ fontSize: "0.85rem", color: "#777", marginBottom: 10 }}>
@@ -53,7 +53,7 @@ export default function RestaurantView() {
           </div>
 
           {/* Simple menu list inside restaurant */}
-          <h3 style={{ fontSize: "0.9rem", marginBottom: 8 }}>Popular items</h3>
+          <h3 style={{ fontSize: "0.9rem", marginBottom: 8, color: "#222" }}>Popular items</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {["Burger 1.0", "Burger Premium", "Spicy Wings"].map((item, i) => (
               <div
@@ -67,8 +67,8 @@ export default function RestaurantView() {
                   background: "#f8f8f9",
                 }}
               >
-                <span style={{ fontSize: "0.9rem" }}>{item}</span>
-                <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>
+                <span style={{ fontSize: "0.9rem", color: "#333" }}>{item}</span>
+                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#222" }}>
                   ৳ {300 + i * 50}
                 </span>
               </div>

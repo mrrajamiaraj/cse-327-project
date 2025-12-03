@@ -86,11 +86,11 @@ export default function Search() {
         <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
           <button
             onClick={() => navigate(-1)}
-            style={{ border: "none", background: "transparent", fontSize: "1.2rem", marginRight: 10, cursor: "pointer" }}
+            style={{ border: "none", background: "transparent", fontSize: "1.2rem", marginRight: 10, cursor: "pointer", color: "#222" }}
           >
             ←
           </button>
-          <h2 style={{ fontSize: "1.1rem", fontWeight: 600, margin: 0 }}>
+          <h2 style={{ fontSize: "1.1rem", fontWeight: 600, margin: 0, color: "#222" }}>
             Search
           </h2>
         </div>
@@ -136,7 +136,7 @@ export default function Search() {
         {/* Recent keywords */}
         {!query && recentSearches.length > 0 && (
           <section style={{ marginBottom: 18 }}>
-            <h3 style={{ fontSize: "0.9rem", marginBottom: 6 }}>Recent Keywords</h3>
+            <h3 style={{ fontSize: "0.9rem", marginBottom: 6, color: "#222" }}>Recent Keywords</h3>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {recentSearches.map((tag) => (
                 <span
@@ -165,7 +165,7 @@ export default function Search() {
           ) : (
             <>
               {query && (
-                <h3 style={{ fontSize: "0.9rem", marginBottom: 12 }}>
+                <h3 style={{ fontSize: "0.9rem", marginBottom: 12, color: "#222" }}>
                   {results.length > 0 ? `Results for "${query}"` : `No results for "${query}"`}
                 </h3>
               )}

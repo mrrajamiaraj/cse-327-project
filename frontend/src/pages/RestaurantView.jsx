@@ -132,7 +132,7 @@ export default function RestaurantView() {
             ←
           </button>
 
-          <span style={{ fontSize: "1.1rem", fontWeight: 600 }}>
+          <span style={{ fontSize: "1.1rem", fontWeight: 600, color: "#222" }}>
             Restaurant View
           </span>
 
@@ -168,7 +168,7 @@ export default function RestaurantView() {
         {/* text section */}
         <div style={{ padding: "0 20px" }}>
           <div
-            style={{ fontWeight: 700, fontSize: "1.2rem", marginBottom: 6 }}
+            style={{ fontWeight: 700, fontSize: "1.2rem", marginBottom: 6, color: "#222" }}
           >
             {displayRestaurant.name}
           </div>
@@ -195,14 +195,14 @@ export default function RestaurantView() {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ color: ORANGE }}>⭐</span>
-              <strong>{displayRestaurant.rating}</strong>
+              <strong style={{ color: "#333" }}>{displayRestaurant.rating}</strong>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#555" }}>
               <span>⏱</span> {displayRestaurant.time}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#555" }}>
               <span>🚚</span> {displayRestaurant.isFree ? "Free delivery" : "Delivery fees apply"}
             </div>
           </div>
@@ -224,11 +224,13 @@ export default function RestaurantView() {
                   padding: "8px 18px",
                   borderRadius: 20,
                   border: cat === activeCategory ? "none" : "1px solid #ddd",
-                  background: cat === activeCategory ? ORANGE : "#fff",
+                  background: cat === activeCategory ? ORANGE : "#f9f9f9",
                   color: cat === activeCategory ? "#fff" : "#333",
                   fontSize: "0.85rem",
+                  fontWeight: cat === activeCategory ? 600 : 500,
                   cursor: "pointer",
                   whiteSpace: "nowrap",
+                  transition: "all 0.2s ease",
                 }}
               >
                 {cat}
@@ -243,6 +245,7 @@ export default function RestaurantView() {
             padding: "0 20px",
             fontSize: "1.05rem",
             fontWeight: 600,
+            color: "#222",
             margin: "16px 0 10px",
           }}
         >
@@ -289,12 +292,13 @@ export default function RestaurantView() {
                       fontWeight: 600,
                       marginBottom: 4,
                       fontSize: "0.95rem",
+                      color: "#222",
                     }}
                   >
                     {item.name}
                   </div>
 
-                  <div style={{ color: "#777", fontSize: "0.75rem" }}>
+                  <div style={{ color: "#666", fontSize: "0.75rem" }}>
                     {item.description?.substring(0, 30)}...
                   </div>
 
