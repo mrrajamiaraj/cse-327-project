@@ -1,10 +1,28 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../services/api";
 
 const CARD_BG = "#f7f8fb";
 const ORANGE = "#ff7a00";
 
 export default function MenuScreen() {
   const navigate = useNavigate();
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await api.get('auth/profile/');
+        setUserProfile(response.data);
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   // Handle clicks on any item
   const handleItemClick = (item) => {
@@ -15,6 +33,14 @@ export default function MenuScreen() {
     // else if (item.label === "Cart") navigate("/cart");
     // etc.
   };
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <div
@@ -67,7 +93,7 @@ export default function MenuScreen() {
             }}
           >
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate("/home")}
               style={{
                 width: 28,
                 height: 28,
@@ -114,8 +140,9 @@ export default function MenuScreen() {
                 height: 54,
                 borderRadius: "50%",
                 overflow: "hidden",
-                background:
-                  "url(https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=400) center/cover",
+                background: userProfile?.avatar 
+                  ? `url(${userProfile.avatar}) center/cover`
+                  : "url(https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=400) center/cover",
               }}
             />
             <div>
@@ -126,10 +153,10 @@ export default function MenuScreen() {
                   marginBottom: 2,
                 }}
               >
-                Md. Raja Mia Raj
+                {userProfile?.first_name || userProfile?.email || "User"}
               </div>
               <div style={{ fontSize: "0.75rem", color: "#999" }}>
-                I love fast food
+                {userProfile?.role === 'customer' ? 'I love fast food' : userProfile?.role}
               </div>
             </div>
           </div>
