@@ -109,10 +109,7 @@ export default function HomeScreen() {
   };
 
   const handleMenuClick = () => {
-    // Toggle menu or navigate to profile
-    // For now, let's just show a simple alert or log
-    // alert("Menu clicked! Profile feature coming soon.");
-    setMenuOpen(!menuOpen);
+    navigate('/menu');
   };
 
   if (loading) {
@@ -332,7 +329,7 @@ export default function HomeScreen() {
         {/* Greeting */}
         <div style={{ marginBottom: 14 }}>
           <span style={{ fontSize: "0.95rem", color: "#666" }}>
-            Hey <strong>Raja</strong>, Good Afternoon!
+            Hey <strong>{userProfile?.first_name || "there"}</strong>, Good Afternoon!
           </span>
         </div>
 
