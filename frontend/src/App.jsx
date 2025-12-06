@@ -13,6 +13,8 @@ import Addresses from "./pages/Addresses.jsx";
 import EditCart from "./pages/EditCart.jsx";
 import Payment from "./pages/Payment.jsx";
 import AddCard from "./pages/AddCard.jsx";
+import SellerDashboard from "./pages/SellerDashboard.jsx";
+
 
 
 
@@ -118,6 +120,8 @@ export default function App() {
           <Route path="/cart" element={<Cart />} />
           <Route path="/edit-cart" element={<EditCart />} />
           <Route path="/add-card" element={<AddCard />} />
+          <Route path="/seller-dashboard" element={<SellerDashboard />} />
+
 
 
 
