@@ -1,51 +1,91 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useMemo } from "react";
-
-import pizzaCalzone from "../assets/pizza-calzone.png";
-import pizzaRoma from "../assets/pizza-roma.png";
+import { useState, useEffect } from "react";
+import api from "../services/api";
 
 const ORANGE = "#ff7a00";
 
 export default function Cart() {
   const navigate = useNavigate();
 
-  const [items, setItems] = useState([
-    {
-      id: 1,
-      name: "Pizza Calzone",
-      size: '14"',
-      price: 640,
-      qty: 1,
-      image: pizzaCalzone,
-    },
-    {
-      id: 2,
-      name: "Pizza Roma",
-      size: '14"',
-      price: 520,
-      qty: 1,
-      image: pizzaRoma,
-    },
-  ]);
+  const [cartData, setCartData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [defaultAddress, setDefaultAddress] = useState(null);
 
-  const total = useMemo(
-    () => items.reduce((sum, it) => sum + it.price * it.qty, 0),
-    [items]
-  );
+  useEffect(() => {
+    fetchCart();
+    fetchDefaultAddress();
+  }, []);
 
-  const updateQty = (id, delta) => {
-    setItems((prev) =>
-      prev.map((it) =>
-        it.id === id ? { ...it, qty: Math.max(1, it.qty + delta) } : it
-      )
-    );
+  const fetchCart = async () => {
+    try {
+      const response = await api.get('customer/cart/');
+      console.log("Cart API Response:", response.data);
+      console.log("Cart Items:", response.data?.items);
+      setCartData(response.data);
+    } catch (error) {
+      console.error("Error fetching cart:", error);
+      console.error("Error details:", error.response?.data);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ⬇⬇⬇ changed: go to Payment screen with total
+  const fetchDefaultAddress = async () => {
+    try {
+      const response = await api.get('customer/addresses/');
+      const defaultAddr = response.data.find(addr => addr.is_default);
+      setDefaultAddress(defaultAddr);
+    } catch (error) {
+      console.error("Error fetching address:", error);
+    }
+  };
+
+  const updateQty = async (cartItemId, newQuantity) => {
+    if (newQuantity < 1) {
+      // Remove item if quantity is 0
+      try {
+        await api.delete(`customer/cart/${cartItemId}/remove_item/`);
+        fetchCart();
+      } catch (error) {
+        console.error("Error removing item:", error);
+      }
+      return;
+    }
+    
+    try {
+      // Update quantity via API
+      await api.patch(`customer/cart/${cartItemId}/update_item/`, { quantity: newQuantity });
+      // Refresh cart
+      fetchCart();
+    } catch (error) {
+      console.error("Error updating quantity:", error);
+      alert("Failed to update quantity");
+    }
+  };
+
   const handlePlaceOrder = () => {
-    navigate("/payment", { state: { total } });
+    if (!cartData || !cartData.items || cartData.items.length === 0) {
+      alert("Your cart is empty!");
+      return;
+    }
+    navigate("/payment", { state: { total: cartData.total } });
   };
-  // ⬆⬆⬆
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#222' }}>
+        Loading cart...
+      </div>
+    );
+  }
+
+  const items = cartData?.items || [];
+  const subtotal = cartData?.subtotal || 0;
+  const deliveryFee = cartData?.delivery_fee || 0;
+  const total = cartData?.total || 0;
+
+  console.log("Rendering cart with items:", items);
+  console.log("Items length:", items.length);
 
   return (
     <div
@@ -128,118 +168,126 @@ export default function Cart() {
           </div>
 
           {/* cart items */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-            }}
-          >
-            {items.map((item) => (
-              <div
-                key={item.id}
-                style={{
-                  display: "flex",
-                  gap: 10,
-                }}
-              >
-                {/* image */}
+          {items.length > 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              {items.map((item) => (
                 <div
+                  key={item.id}
                   style={{
-                    width: 70,
-                    height: 70,
-                    borderRadius: 18,
-                    overflow: "hidden",
-                    flexShrink: 0,
-                  }}
-                >
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                </div>
-
-                {/* text + controls */}
-                <div
-                  style={{
-                    flex: 1,
                     display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    padding: "4px 0",
+                    gap: 10,
                   }}
                 >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: "0.9rem",
-                        fontWeight: 600,
-                        marginBottom: 2,
-                      }}
-                    >
-                      {item.name}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "0.85rem",
-                        fontWeight: 700,
-                        marginBottom: 2,
-                      }}
-                    >
-                      ৳{item.price}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "0.7rem",
-                        color: "#b0b0b0",
-                      }}
-                    >
-                      {item.size}
-                    </div>
-                  </div>
-
-                  {/* qty controls */}
+                  {/* image */}
                   <div
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      marginTop: 6,
+                      width: 70,
+                      height: 70,
+                      borderRadius: 18,
+                      overflow: "hidden",
+                      flexShrink: 0,
                     }}
                   >
-                    <button
-                      onClick={() => updateQty(item.id, -1)}
-                      style={qtyButtonStyle}
-                    >
-                      −
-                    </button>
-
-                    <span
+                    <img
+                      src={item.food.image || "https://via.placeholder.com/70"}
+                      alt={item.food.name}
                       style={{
-                        minWidth: 16,
-                        textAlign: "center",
-                        fontSize: "0.85rem",
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  </div>
+
+                  {/* text + controls */}
+                  <div
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      padding: "4px 0",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontSize: "0.9rem",
+                          fontWeight: 600,
+                          marginBottom: 2,
+                        }}
+                      >
+                        {item.food.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.85rem",
+                          fontWeight: 700,
+                          marginBottom: 2,
+                        }}
+                      >
+                        ৳{item.food.price}
+                      </div>
+                      {item.variants && item.variants.length > 0 && (
+                        <div
+                          style={{
+                            fontSize: "0.7rem",
+                            color: "#b0b0b0",
+                          }}
+                        >
+                          {item.variants.join(", ")}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* qty controls */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        marginTop: 6,
                       }}
                     >
-                      {item.qty}
-                    </span>
+                      <button
+                        onClick={() => updateQty(item.id, item.quantity - 1)}
+                        style={qtyButtonStyle}
+                      >
+                        −
+                      </button>
 
-                    <button
-                      onClick={() => updateQty(item.id, 1)}
-                      style={qtyButtonStyle}
-                    >
-                      +
-                    </button>
+                      <span
+                        style={{
+                          minWidth: 16,
+                          textAlign: "center",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        {item.quantity}
+                      </span>
+
+                      <button
+                        onClick={() => updateQty(item.id, item.quantity + 1)}
+                        style={qtyButtonStyle}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "40px 20px", color: "#999" }}>
+              Your cart is empty
+            </div>
+          )}
         </div>
 
         {/* white bottom sheet */}
@@ -288,37 +336,44 @@ export default function Cart() {
               marginBottom: 12,
             }}
           >
-            2118 Thornridge Cir, Syracuse
+            {defaultAddress ? defaultAddress.address : "No address set"}
           </div>
 
-          {/* total */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 12,
-              fontSize: "0.85rem",
-            }}
-          >
-            <div>
-              <span style={{ color: "#a0a0a0", marginRight: 4 }}>
-                TOTAL:
-              </span>
-              <span style={{ fontWeight: 700 }}>৳{total}</span>
-            </div>
-
-            <button
+          {/* total breakdown */}
+          <div style={{ marginBottom: 12, fontSize: "0.85rem" }}>
+            <div
               style={{
-                border: "none",
-                background: "transparent",
-                fontSize: "0.75rem",
-                color: "#ff7a00",
-                cursor: "pointer",
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: 4,
+                color: "#666",
               }}
             >
-              Breakdown &gt;
-            </button>
+              <span>Subtotal:</span>
+              <span>৳{subtotal.toFixed(2)}</span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: 8,
+                color: "#666",
+              }}
+            >
+              <span>Delivery Fee:</span>
+              <span>৳{deliveryFee.toFixed(2)}</span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                paddingTop: 8,
+                borderTop: "1px solid #e0e0e0",
+              }}
+            >
+              <span style={{ fontWeight: 700 }}>TOTAL:</span>
+              <span style={{ fontWeight: 700, color: ORANGE }}>৳{total.toFixed(2)}</span>
+            </div>
           </div>
 
           {/* PLACE ORDER */}

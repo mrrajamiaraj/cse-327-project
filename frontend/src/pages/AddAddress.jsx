@@ -1,17 +1,29 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import { GoogleMap, useJsApiLoader, Marker } from "@react-google-maps/api";
+import api from "../services/api";
 
 const ORANGE = "#ff7a00";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "YOUR_GOOGLE_MAPS_API_KEY";
+
+const mapContainerStyle = {
+  width: "100%",
+  height: "100%",
+  borderRadius: "18px",
+};
 
 export default function AddAddress() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const editAddress = location.state?.address;
 
   // simple form state
-  const [address, setAddress] = useState("North South University");
-  const [street, setStreet] = useState("Aftab Uddin Road");
-  const [postCode, setPostCode] = useState("1229");
-  const [apartment, setApartment] = useState("N/A");
+  const [address, setAddress] = useState("");
+  const [street, setStreet] = useState("");
+  const [postCode, setPostCode] = useState("");
+  const [apartment, setApartment] = useState("");
   const [label, setLabel] = useState("Home");
+  const [loading, setLoading] = useState(false);
 
   // map center (default: NSU)
   const [coords, setCoords] = useState({
@@ -19,33 +31,101 @@ export default function AddAddress() {
     lng: 90.4277,
   });
 
-  // ask for location permission once, update map center
+  // Load existing address if editing
   useEffect(() => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setCoords({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          });
-        },
-        (err) => {
-          console.warn("Geolocation error:", err.message);
-          // if denied, we just keep the default NSU center
-        }
-      );
+    if (editAddress) {
+      setLabel(editAddress.title);
+      
+      // Parse the combined address back into separate fields
+      // Check if it's the new format (with |||) or old format (with commas)
+      if (editAddress.address.includes("|||")) {
+        // New format: address|||street|||apartment|||postCode
+        const parts = editAddress.address.split("|||");
+        setAddress(parts[0] || "");
+        setStreet(parts[1] || "");
+        setApartment(parts[2] || "");
+        setPostCode(parts[3] || "");
+      } else {
+        // Old format: fallback to comma separation
+        const parts = editAddress.address.split(", ");
+        if (parts.length >= 1) setAddress(parts[0] || "");
+        if (parts.length >= 2) setStreet(parts[1] || "");
+        if (parts.length >= 3) setApartment(parts[2] || "");
+        if (parts.length >= 4) setPostCode(parts[3] || "");
+      }
+      
+      setCoords({ lat: editAddress.lat, lng: editAddress.lng });
     }
-  }, []);
+  }, [editAddress]);
 
-  const handleSave = (e) => {
+  // Use session location if available, otherwise use default
+  useEffect(() => {
+    if (!editAddress) {
+      const sessionLocation = sessionStorage.getItem("currentSessionLocation");
+      if (sessionLocation) {
+        const loc = JSON.parse(sessionLocation);
+        setCoords({ lat: loc.latitude, lng: loc.longitude });
+      }
+      // Don't automatically request location - user can manually adjust on map
+    }
+  }, [editAddress]);
+
+  const handleSave = async (e) => {
     e.preventDefault();
-    const data = { address, street, postCode, apartment, label, coords };
-    // 👉 later: send `data` to your backend API
-    console.log("Saved address:", data);
-    navigate("/addresses"); // go back to list
+    
+    if (!address.trim()) {
+      alert("Please enter an address");
+      return;
+    }
+
+    setLoading(true);
+    
+    // Combine all address fields with a special separator to preserve empty fields
+    // Format: address|||street|||apartment|||postCode
+    const fullAddress = `${address}|||${street}|||${apartment}|||${postCode}`;
+    
+    const data = {
+      title: label,
+      address: fullAddress,
+      lat: coords.lat,
+      lng: coords.lng,
+      is_default: false
+    };
+
+    try {
+      if (editAddress) {
+        // Update existing address
+        await api.put(`customer/addresses/${editAddress.id}/`, data);
+        alert("Address updated successfully!");
+      } else {
+        // Create new address
+        await api.post('customer/addresses/', data);
+        alert("Address saved successfully!");
+      }
+      navigate("/addresses");
+    } catch (error) {
+      console.error("Error saving address:", error);
+      alert("Failed to save address. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const mapSrc = `https://www.google.com/maps?q=${coords.lat},${coords.lng}&z=17&output=embed`;
+  const { isLoaded } = useJsApiLoader({
+    id: "google-map-script",
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+  });
+
+
+
+  const handleMapClick = async (e) => {
+    const newLat = e.latLng.lat();
+    const newLng = e.latLng.lng();
+    setCoords({ lat: newLat, lng: newLng });
+    
+    // Don't auto-fill - let user enter address manually
+    // Just update the coordinates display
+  };
 
   return (
     <div
@@ -76,7 +156,7 @@ export default function AddAddress() {
             marginBottom: 10,
           }}
         >
-          Add New Address
+          {editAddress ? "Edit Address" : "Add New Address"}
         </div>
 
         {/* Map area with back button */}
@@ -89,18 +169,36 @@ export default function AddAddress() {
             height: 180,
           }}
         >
-          {/* Embedded Google Map */}
-          <iframe
-            title="select-location"
-            src={mapSrc}
-            style={{
-              width: "100%",
-              height: "100%",
-              border: "none",
-            }}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
+          {/* Interactive Google Map */}
+          {isLoaded ? (
+            <GoogleMap
+              mapContainerStyle={mapContainerStyle}
+              center={coords}
+              zoom={15}
+              onClick={handleMapClick}
+              options={{
+                disableDefaultUI: true,
+                zoomControl: true,
+              }}
+            >
+              <Marker position={coords} />
+            </GoogleMap>
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                background: "#f0f0f0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#666",
+                fontSize: "0.85rem",
+              }}
+            >
+              Loading map...
+            </div>
+          )}
 
           {/* Back button over map */}
           <button
@@ -118,6 +216,7 @@ export default function AddAddress() {
               cursor: "pointer",
               fontSize: "1rem",
               boxShadow: "0 4px 10px rgba(0,0,0,0.25)",
+              zIndex: 10,
             }}
           >
             ←
@@ -126,93 +225,154 @@ export default function AddAddress() {
 
         {/* Form card (white) */}
         <form onSubmit={handleSave}>
-          {/* ADDRESS */}
-          <FieldLabel label="ADDRESS" />
-          <InputBox value={address} onChange={(e) => setAddress(e.target.value)} />
+          {/* LOCATION COORDINATES (Read-only) */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: 6,
+              marginBottom: 6,
+            }}>
+              <span style={{ fontSize: "1rem" }}>📍</span>
+              <FieldLabel label="Location Coordinates" style={{ marginBottom: 0, marginTop: 0 }} />
+            </div>
+            <div style={{
+              background: "#fff7f0",
+              border: `1px solid ${ORANGE}30`,
+              borderRadius: 10,
+              padding: "10px 12px",
+              fontSize: "0.8rem",
+              color: "#666",
+              fontFamily: "monospace",
+            }}>
+              {coords.lat.toFixed(6)}, {coords.lng.toFixed(6)}
+            </div>
+          </div>
 
-          {/* STREET + POST CODE in same row */}
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              marginTop: 6,
-            }}
-          >
-            <div style={{ flex: 2 }}>
-              <FieldLabel label="STREET" />
-              <InputBox
-                value={street}
-                onChange={(e) => setStreet(e.target.value)}
+          {/* Delivery Details Section */}
+          <div style={{
+            background: "#f9fafb",
+            borderRadius: 12,
+            padding: "14px",
+            marginBottom: 16,
+          }}>
+            <h3 style={{
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              color: "#333",
+              marginBottom: 12,
+              marginTop: 0,
+            }}>
+              🍔 Delivery Address
+            </h3>
+
+            {/* ADDRESS */}
+            <div style={{ marginBottom: 10 }}>
+              <FieldLabel label="Address" />
+              <InputBox 
+                value={address} 
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Enter address"
+                required
               />
             </div>
-            <div style={{ flex: 1 }}>
-              <FieldLabel label="POST CODE" />
+
+            {/* STREET NUMBER + FLAT NUMBER in same row */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+              <div style={{ flex: 1 }}>
+                <FieldLabel label="Street No." />
+                <InputBox
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  placeholder="Street no."
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <FieldLabel label="Flat No." />
+                <InputBox
+                  value={apartment}
+                  onChange={(e) => setApartment(e.target.value)}
+                  placeholder="Flat no."
+                />
+              </div>
+            </div>
+
+            {/* POSTAL CODE */}
+            <div style={{ marginBottom: 0, maxWidth: "150px" }}>
+              <FieldLabel label="Postal Code" />
               <InputBox
                 value={postCode}
                 onChange={(e) => setPostCode(e.target.value)}
+                placeholder="Postal code"
               />
             </div>
           </div>
 
-          {/* APARTMENT */}
-          <FieldLabel label="APARTMENT" />
-          <InputBox
-            value={apartment}
-            onChange={(e) => setApartment(e.target.value)}
-          />
-
           {/* LABEL AS buttons */}
-          <FieldLabel label="LABEL AS" />
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              marginTop: 4,
-              marginBottom: 10,
-            }}
-          >
-            {["Home", "Work", "Other"].map((item) => {
-              const active = label === item;
-              return (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setLabel(item)}
-                  style={{
-                    flex: 1,
-                    padding: "6px 0",
-                    borderRadius: 18,
-                    border: "none",
-                    background: active ? ORANGE : "#f4f5fa",
-                    color: active ? "#fff" : "#555",
-                    fontSize: "0.8rem",
-                    cursor: "pointer",
-                    fontWeight: active ? 600 : 500,
-                  }}
-                >
-                  {item}
-                </button>
-              );
-            })}
+          <div style={{ marginBottom: 20 }}>
+            <FieldLabel label="Save As" />
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                marginTop: 8,
+              }}
+            >
+              {[
+                { name: "Home", icon: "🏠" },
+                { name: "Work", icon: "🏢" },
+                { name: "Other", icon: "📍" }
+              ].map((item) => {
+                const active = label === item.name;
+                return (
+                  <button
+                    key={item.name}
+                    type="button"
+                    onClick={() => setLabel(item.name)}
+                    style={{
+                      flex: 1,
+                      padding: "10px 8px",
+                      borderRadius: 12,
+                      border: active ? `2px solid ${ORANGE}` : "2px solid #e5e7eb",
+                      background: active ? "#fff7f0" : "#fff",
+                      color: active ? ORANGE : "#666",
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                      fontWeight: active ? 600 : 500,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 4,
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <span style={{ fontSize: "1.2rem" }}>{item.icon}</span>
+                    <span>{item.name}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* SAVE LOCATION button */}
           <button
             type="submit"
+            disabled={loading}
             style={{
-              marginTop: 6,
               width: "100%",
-              padding: "11px 0",
-              borderRadius: 10,
+              padding: "14px 0",
+              borderRadius: 12,
               border: "none",
-              background: ORANGE,
+              background: loading ? "#ccc" : ORANGE,
               color: "#fff",
               fontWeight: 700,
-              cursor: "pointer",
-              fontSize: "0.9rem",
+              cursor: loading ? "not-allowed" : "pointer",
+              fontSize: "0.95rem",
+              boxShadow: loading ? "none" : "0 4px 12px rgba(255,122,0,0.3)",
+              transition: "all 0.2s ease",
             }}
           >
-            SAVE LOCATION
+            {loading ? "SAVING..." : editAddress ? "✓ UPDATE ADDRESS" : "✓ SAVE ADDRESS"}
           </button>
         </form>
       </div>
@@ -220,14 +380,16 @@ export default function AddAddress() {
   );
 }
 
-function FieldLabel({ label }) {
+function FieldLabel({ label, style }) {
   return (
     <div
       style={{
         fontSize: "0.7rem",
-        color: "#a0a0a0",
+        color: "#666",
         marginBottom: 4,
         marginTop: 6,
+        fontWeight: 500,
+        ...style,
       }}
     >
       {label}
@@ -235,18 +397,29 @@ function FieldLabel({ label }) {
   );
 }
 
-function InputBox(props) {
+function InputBox({ style, ...props }) {
   return (
     <input
       {...props}
       style={{
         width: "100%",
-        padding: "9px 11px",
-        borderRadius: 8,
-        border: "none",
-        background: "#f4f6fb",
-        fontSize: "0.8rem",
+        padding: "10px 12px",
+        borderRadius: 10,
+        border: "1px solid #e5e7eb",
+        background: "#fff",
+        fontSize: "0.85rem",
         outline: "none",
+        transition: "all 0.2s ease",
+        boxSizing: "border-box",
+        ...style,
+      }}
+      onFocus={(e) => {
+        e.target.style.borderColor = ORANGE;
+        e.target.style.boxShadow = `0 0 0 3px ${ORANGE}15`;
+      }}
+      onBlur={(e) => {
+        e.target.style.borderColor = "#e5e7eb";
+        e.target.style.boxShadow = "none";
       }}
     />
   );

@@ -8,16 +8,29 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(Restaurant)
 class RestaurantAdmin(admin.ModelAdmin):
-    list_display = ('name', 'owner', 'cuisine', 'rating', 'is_approved')
+    list_display = ('name', 'owner', 'cuisine', 'get_rating_display', 'is_approved')
+    
+    def get_rating_display(self, obj):
+        """Display calculated rating in admin"""
+        return obj.get_average_rating()
+    get_rating_display.short_description = 'Rating'
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'restaurant')
+    list_display = ('name', 'description', 'icon')
+    search_fields = ('name',)
+
+@admin.register(Addon)
+class AddonAdmin(admin.ModelAdmin):
+    list_display = ('name', 'price', 'restaurant')
+    list_filter = ('restaurant',)
+    search_fields = ('name',)
 
 @admin.register(Food)
 class FoodAdmin(admin.ModelAdmin):
     list_display = ('name', 'restaurant', 'price', 'is_veg')
-    fields = ('name', 'description', 'price', 'image', 'is_veg', 'ingredients', 'addons', 'restaurant', 'category')  # Matches Figma add food screen
+    filter_horizontal = ('available_addons',)  # Nice UI for selecting multiple addons
+    fields = ('name', 'description', 'price', 'image', 'is_veg', 'ingredients', 'available_addons', 'restaurant', 'category')
 
 @admin.register(Address)
 class AddressAdmin(admin.ModelAdmin):
