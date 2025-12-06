@@ -1,13 +1,561 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>cse-327-project</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Islamic Law: Qiyas - Editable</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Hind Siliguri for Bengali, Amiri for Arabic, Lato for English -->
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Hind+Siliguri:wght@400;500;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        /* BASE RESET & SETUP */
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #f3f4f6;
+            display: grid;
+            gap: 40px;
+            place-items: center;
+            font-family: 'Hind Siliguri', sans-serif;
+        }
+
+        /* EDITABLE HINT */
+        .editable-hint {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #D97706;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-family: sans-serif;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            opacity: 0.9;
+            pointer-events: none;
+            animation: fadeOut 5s forwards 3s;
+        }
+
+        @keyframes fadeOut {
+            to { opacity: 0; }
+        }
+
+        @media print {
+            .editable-hint { display: none; }
+        }
+
+        /* EDITABLE STYLES */
+        [contenteditable="true"]:hover {
+            outline: 1px dashed #cbd5e1;
+            cursor: text;
+        }
+        
+        [contenteditable="true"]:focus {
+            outline: 2px solid #D97706;
+            background-color: rgba(255, 255, 255, 0.5);
+            border-radius: 4px;
+            padding: 0 5px;
+        }
+
+        /* SLIDE CONTAINER */
+        .slide-container {
+            width: 1280px;
+            height: 720px;
+            background-color: #FAF9F6; /* Off-white / Cream */
+            position: relative;
+            overflow: hidden;
+            border-radius: 16px;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            padding: 50px 70px;
+        }
+
+        /* BACKGROUND TEXTURE */
+        .slide-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: url('http://googleusercontent.com/image_collection/image_retrieval/1020806064501132103'); /* Geometric pattern */
+            background-size: cover;
+            opacity: 0.04;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .slide-container > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* TYPOGRAPHY */
+        h1, h2, h3 {
+            color: #065F46; /* Islamic Green */
+            margin: 0;
+            font-weight: 700;
+        }
+
+        h1 { font-size: 80px; line-height: 1.1; margin-bottom: 20px; }
+        
+        .slide-title {
+            font-size: 42px;
+            margin-bottom: 40px;
+            color: #065F46;
+            border-left: 6px solid #D97706; /* Gold Accent */
+            padding-left: 20px;
+            width: 100%;
+        }
+
+        p, li {
+            color: #374151;
+            font-size: 24px;
+            line-height: 1.6;
+        }
+
+        .subtitle {
+            font-size: 32px;
+            color: #92400E; /* Dark Amber */
+            margin-bottom: 30px;
+        }
+        
+        /* Course Info Styling on Slide 1 */
+        .course-info {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #E5E7EB;
+            font-size: 24px;
+            color: #4B5563;
+        }
+        
+        .course-info p {
+             margin-bottom: 8px;
+             font-size: 26px;
+        }
+
+        /* ARABIC TEXT STYLING */
+        .arabic-text {
+            font-family: 'Amiri', serif;
+            direction: rtl;
+            font-size: 1.4em;
+            color: #064E3B; /* Darker Green */
+            line-height: 1.8;
+            display: block; 
+            margin: 10px 0;
+        }
+
+        /* LAYOUT UTILITIES */
+        .content-area {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            height: 100%;
+            align-items: center;
+        }
+        
+        /* Presenter Info Styling */
+        .presenter-info-box {
+            background-color: white;
+            padding: 50px;
+            border-radius: 12px;
+            border-left: 8px solid #D97706;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        }
+
+        /* IMAGE STYLES */
+        .image-wrapper {
+            width: 100%;
+            height: 480px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            border: 4px solid #fff;
+        }
+
+        .image-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .two-column .image-wrapper img {
+            object-fit: cover;
+        }
+
+        /* TILED LAYOUTS */
+        .tiled-content {
+            display: flex;
+            gap: 30px;
+            width: 100%;
+            height: 100%;
+        }
+
+        .tile {
+            flex: 1;
+            background: #fff;
+            border: 1px solid #E5E7EB;
+            border-radius: 12px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .tile .icon {
+            font-size: 50px;
+            color: #D97706; /* Gold */
+            margin-bottom: 20px;
+        }
+
+        /* BLEED IMAGE LAYOUT */
+        .slide-container.bleed-image-layout {
+            padding: 0;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            align-items: start;
+        }
+
+        .slide-container.bleed-image-layout > .content-container {
+            padding: 70px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+        }
+
+        .slide-container.bleed-image-layout > .image-container {
+            height: 100%;
+            width: 100%;
+        }
+
+        .slide-container.bleed-image-layout img.bleed-image-side {
+            width: 100%;
+            height: 100%;
+            max-height: 720px;
+            object-fit: cover;
+        }
+
+        /* FULL BG IMAGE */
+        .full-bg-image {
+            background-size: cover;
+            background-position: center;
+        }
+        
+        .full-bg-image .content-overlay {
+            background: linear-gradient(rgba(6, 95, 70, 0.9), rgba(6, 95, 70, 0.8));
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            color: white;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .full-bg-image h2, .full-bg-image p {
+            color: white !important;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="editable-hint">✨ Click on text to edit</div>
+
+<!-- SLIDE 1: Title Slide -->
+<div class="slide-container bleed-image-layout" id="slide1">
+    <div class="content-container">
+        <!-- Title Section -->
+        <h1><strong contenteditable="true">কিয়াস</strong><br><span contenteditable="true" style="font-size: 0.6em; color: #4B5563;">(القياس)</span></h1>
+        
+        <!-- Course Info -->
+        <div class="course-info" contenteditable="true">
+            <p style="font-weight: 600; color: #065F46;">কোর্স: উসুলুল ফিকহ ও তারিকুল ফিকহ</p>
+            <p style="color: #6B7280;">কোড: BIS 3118</p>
+        </div>
+        
+        <p class="subtitle" contenteditable="true" style="margin-top: 30px;">ইসলামী আইন প্রণয়নে কিয়াসের ভূমিকা</p>
+    </div>
+    <div class="image-container">
+        <img class="bleed-image-side" src="http://googleusercontent.com/image_collection/image_retrieval/4860355588022767079" alt="Elegant Islamic background with open Quran">
+    </div>
+</div>
+
+<!-- SLIDE 2: Presenter Info (UPDATED WITH USER IMAGE) -->
+<div class="slide-container" id="slide2">
+    <h2 class="slide-title" contenteditable="true">পরিচিতি</h2>
+    <div class="content-area">
+        <div class="two-column">
+            <div>
+                <div class="presenter-info-box" contenteditable="true">
+                    <p style="font-size: 20px; color: #6B7280; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">উপস্থাপনায়</p>
+                    <h2 style="font-size: 56px; margin-bottom: 25px; color: #1F2937;">রাফিউল আলম</h2>
+                    <div style="width: 50px; height: 4px; background: #D97706; margin-bottom: 25px;"></div>
+                    <p style="font-size: 32px; color: #374151;"><strong>রোল:</strong> ২৩১০৬০৯১৮৪</p>
+                </div>
+            </div>
+            <div class="image-wrapper">
+                <!-- USER UPLOADED IMAGE HERE -->
+                <img src="ffe52b46-e881-4332-bc35-15f33a098e7b (1).jpg" alt="Rafiul Alam" onerror="this.onerror=null; this.src='http://googleusercontent.com/image_collection/image_retrieval/13813380884017337790';">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 3: Introduction -->
+<div class="slide-container" id="slide3">
+    <h2 class="slide-title" contenteditable="true">ভূমিকা: কিয়াসের প্রয়োজনীয়তা</h2>
+    <div class="content-area">
+        <div class="two-column">
+            <div>
+                 <p contenteditable="true" style="margin-bottom: 20px;">ইসলামী শরিয়াহর মূল উৎসগুলো হলো কুরআন, সুন্নাহ, ইজমা এবং কিয়াস। সময়ের সাথে সৃষ্ট নতুন সমস্যা সমাধানের জন্য কিয়াস অপরিহার্য।</p>
+                 <ul contenteditable="true" style="font-size: 22px;">
+                     <li><i class="fa-solid fa-book-quran" style="color: #065F46; width: 30px;"></i> <strong>কুরআন:</strong> আল্লাহর বাণী।</li>
+                     <li><i class="fa-solid fa-scroll" style="color: #065F46; width: 30px;"></i> <strong>সুন্নাহ:</strong> রাসূল (সা.) এর আদর্শ।</li>
+                     <li><i class="fa-solid fa-users-rays" style="color: #065F46; width: 30px;"></i> <strong>ইজমা:</strong> মুজতাহিদদের ঐকমত্য।</li>
+                     <li style="background-color: #ECFDF5; padding: 10px; border-radius: 8px; border-left: 4px solid #D97706;"><i class="fa-solid fa-scale-balanced" style="color: #D97706; width: 30px;"></i> <strong>কিয়াস:</strong> মূল উৎসের সাথে সাদৃশ্য রেখে নতুন হুকুম বের করা।</li>
+                 </ul>
+            </div>
+            <div class="image-wrapper">
+                <img src="http://googleusercontent.com/image_collection/image_retrieval/7242634907345547644" alt="Illustration of Islamic Sharia sources">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 4: Definition -->
+<div class="slide-container" id="slide4">
+    <h2 class="slide-title" contenteditable="true">কিয়াসের ধারণা ও সংজ্ঞা</h2>
+    <div class="content-area">
+        <div class="two-column">
+            <div contenteditable="true">
+                <ul>
+                    <li><strong>আরবি শব্দ:</strong> القياس (আল-কিয়াস)</li>
+                    <li><strong>ভাষাগত অর্থ:</strong> মাপা, তুলনা করা, এক জিনিসকে অন্য কিছুর মাপকাঠিতে মিলানো।</li>
+                    <li style="margin-top: 25px;"><strong>পরিভাষাগত অর্থ:</strong></li>
+                    <ul style="list-style-type: circle; margin-left: 20px; font-size: 0.9em;">
+                         <li>কুরআন-হাদিসে স্পষ্ট হুকুম আছে এমন <strong>আসল (মূল)</strong> সমস্যার কারণ খুঁজে বের করা।</li>
+                         <li>সেই একই কারণ বা 'ইল্লাহ' বিদ্যমান এমন <strong>ফার' (নতুন)</strong> সমস্যায় একই হুকুম প্রয়োগ করা।</li>
+                    </ul>
+                    <div style="background: #ECFDF5; padding: 15px; border-left: 5px solid #065F46; margin-top: 20px;">
+                        <p style="margin: 0; font-weight: 700;">সহজ সূত্র: একই কারণ (ইল্লাহ) ⇒ একই হুকুম</p>
+                    </div>
+                </ul>
+            </div>
+            <div class="image-wrapper">
+                <img src="http://googleusercontent.com/image_collection/image_retrieval/17095569892991233824" alt="Vintage weighing scale representing comparison">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 5: Rukn (Pillars) -->
+<div class="slide-container" id="slide5">
+    <h2 class="slide-title" contenteditable="true">কিয়াসের চারটি রুকন (মূল স্তম্ভ)</h2>
+    <div class="content-area">
+        <div class="tiled-content" style="gap: 20px;">
+            <div class="tile" style="align-items: flex-start; text-align: left;" contenteditable="true">
+                <div class="icon" style="font-size: 30px; background: #FEF3C7; padding: 10px; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">1</div>
+                <h3>الأصل (আসল)</h3>
+                <p style="font-size: 20px;">মূল ঘটনা, যার ব্যাপারে কুরআন/হাদিসে স্পষ্ট হুকুম আছে।<br><br><strong>উদা:</strong> মদ (খামর)।</p>
+            </div>
+            <div class="tile" style="align-items: flex-start; text-align: left;" contenteditable="true">
+                <div class="icon" style="font-size: 30px; background: #D1FAE5; padding: 10px; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">2</div>
+                <h3>العلة (ইল্লাহ)</h3>
+                <p style="font-size: 20px;">হুকুমের কারণ বা সাধারণ বৈশিষ্ট্য যা মূল ঘটনায় বিদ্যমান।<br><br><strong>উদা:</strong> নেশা তৈরি করা।</p>
+            </div>
+            <div class="tile" style="align-items: flex-start; text-align: left;" contenteditable="true">
+                 <div class="icon" style="font-size: 30px; background: #DBEAFE; padding: 10px; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">3</div>
+                <h3>الفرع (ফার্‌)</h3>
+                <p style="font-size: 20px;">নতুন ঘটনা বা সমস্যা, যার ব্যাপারে সরাসরি লিখিত নেই।<br><br><strong>উদা:</strong> হিরোইন/ইয়াবা।</p>
+            </div>
+            <div class="tile" style="align-items: flex-start; text-align: left;" contenteditable="true">
+                 <div class="icon" style="font-size: 30px; background: #FCE7F3; padding: 10px; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;">4</div>
+                <h3>الحکم (হুকুম)</h3>
+                <p style="font-size: 20px;">মূল ঘটনার শরয়ী বিধান যা এখন নতুন ঘটনায় প্রয়োগ হবে।<br><br><strong>উদা:</strong> হারাম।</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 6: Quran Evidence 1 -->
+<div class="slide-container bleed-image-layout" id="slide6">
+    <div class="content-container">
+        <h2 class="slide-title" contenteditable="true">কুরআনের আলোকে কিয়াস (১)</h2>
+        <p contenteditable="true">আল্লাহ তা'আলা পবিত্র কুরআনে শিক্ষা গ্রহণের নির্দেশ দিয়েছেন।</p>
+        
+        <div style="background: #fff; padding: 25px; border-radius: 10px; border: 1px solid #e5e7eb; margin: 20px 0;">
+            <p class="arabic-text" contenteditable="true" style="font-size: 48px; text-align: center;">فَاعْتَبِرُوا يَا أُولِي الْأَبْصَارِ</p>
+            <p style="text-align: center; font-size: 18px; color: #6B7280; margin-top: 10px;" contenteditable="true">(সূরা আল-হাশর, ৫৯:২)</p>
+        </div>
+        
+        <p contenteditable="true"><strong>অর্থ:</strong> “অতএব হে অন্তর্দৃষ্টিসম্পন্ন লোকেরা, তোমরা শিক্ষা গ্রহণ করো।”</p>
+        <p contenteditable="true" style="margin-top: 15px;">উসুলবিদদের মতে, "ই'তিবার" অর্থ হলো এক ঘটনার পরিণতি দেখে অন্য ঘটনার জন্য সিদ্ধান্ত নেওয়া বা তুলনা (কিয়াস) করা।</p>
+    </div>
+    <div class="image-container">
+        <img class="bleed-image-side" src="http://googleusercontent.com/image_collection/image_retrieval/14074763023050676920" alt="Islamic library with old books">
+    </div>
+</div>
+
+<!-- SLIDE 7: Quran Evidence 2 (UPDATED WITH IMAGE) -->
+<div class="slide-container" id="slide7">
+    <h2 class="slide-title" contenteditable="true">কুরআনের আলোকে কিয়াস (২)</h2>
+    <div class="content-area">
+        <div class="two-column">
+            <div>
+                 <p class="arabic-text" contenteditable="true" style="font-size: 32px;">يَا أَيُّهَا الَّذِينَ آمَنُوا أَطِيعُوا اللَّهَ وَأَطِيعُوا الرَّسُولَ وَأُولِي الْأَمْرِ مِنْكُمْ ۖ فَإِنْ تَنَازَعْتُمْ فِي شَيْءٍ فَرُدُّوهُ إِلَى اللَّهِ وَالرَّسُولِ...</p>
+                 <p contenteditable="true" style="font-size: 18px; text-align: right; color: #666;">(সূরা আন-নিসা, ৪:৫৯)</p>
+                 <br>
+                 <p contenteditable="true"><strong>সারসংক্ষেপ:</strong> বিবাদ হলে আল্লাহ ও রাসূলের দিকে ফিরে যাওয়া। এর অর্থ হলো, নতুন বিষয়ে সরাসরি সমাধান না থাকলে কুরআন-সুন্নাহর নীতি ও 'ইল্লাহ' খুঁজে বের করা।</p>
+            </div>
+            <div class="image-wrapper">
+                 <img src="http://googleusercontent.com/image_collection/image_retrieval/6144586323761056707" alt="Consulting the Quran and Sunnah">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 8: Hadith Evidence 1 -->
+<div class="slide-container" id="slide8">
+    <h2 class="slide-title" contenteditable="true">হাদিসের দলিল: মু’আয (রা.) এর ঘটনা</h2>
+    <div class="content-area">
+        <div class="two-column">
+             <div class="image-wrapper">
+                <img src="http://googleusercontent.com/image_collection/image_retrieval/10068293972554920544" alt="Islamic teaching representation">
+            </div>
+            <div contenteditable="true">
+                <p style="font-style: italic; margin-bottom: 20px;">রাসূল ﷺ যখন মু’আয (রা.)-কে ইয়েমেনে বিচারক হিসেবে পাঠান:</p>
+                <ul style="font-size: 22px;">
+                    <li><strong>নবীজী ﷺ:</strong> "ফয়সালা কীভাবে করবে?"</li>
+                    <li><strong>মু’আয (রা.):</strong> "আল্লাহর কিতাব অনুযায়ী।"</li>
+                    <li><strong>নবীজী ﷺ:</strong> "কিতাবে না পেলে?"</li>
+                    <li><strong>মু’আয (রা.):</strong> "রাসূলের সুন্নাহ অনুযায়ী।"</li>
+                    <li><strong>নবীজী ﷺ:</strong> "সুন্নাহতে না পেলে?"</li>
+                    <li><strong>মু’আয (রা.):</strong> <span style="color: #D97706; font-weight: 700;">"আমি আমার নিজের ইজতিহাদ (রায়) প্রয়োগ করব।"</span></li>
+                </ul>
+                <p style="margin-top: 20px;">রাসূল ﷺ এতে খুশি হয়ে আল্লাহর প্রশংসা করলেন। এটি কিয়াস ও ইজতিহাদের অন্যতম শক্তিশালী দলিল।</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 9: Hadith Evidence 2 -->
+<div class="slide-container" id="slide9">
+    <h2 class="slide-title" contenteditable="true">হাদিসের দলিল: ইজতিহাদের সওয়াব</h2>
+    <div class="content-area">
+        <div class="two-column" style="grid-template-columns: 1fr 2fr;">
+            <div class="image-wrapper" style="height: 300px; width: 300px; border-radius: 50%; margin: 0 auto;">
+                <img src="http://googleusercontent.com/image_collection/image_retrieval/9454767540036189174" alt="Judge gavel">
+            </div>
+            <div contenteditable="true">
+                <p class="arabic-text" style="font-size: 32px; margin-bottom: 20px;">إِذَا حَكَمَ الحَاكِمُ فَاجْتَهَدَ ثُمَّ أَصَابَ فَلَهُ أَجْرَانِ، وَإِذَا حَكَمَ فَاجْتَهَدَ ثُمَّ أَخْطَأَ فَلَهُ أَجْرٌ وَاحِدٌ</p>
+                <h3 style="margin-bottom: 15px;">রাসূলুল্লাহ ﷺ বলেছেন:</h3>
+                <ul>
+                    <li>বিচারক ইজতিহাদ করে সঠিক সিদ্ধান্ত নিলে: <strong>২টি সওয়াব</strong>।</li>
+                    <li>ইজতিহাদ করে ভুল করলেও: <strong>১টি সওয়াব</strong> (চেষ্টার জন্য)।</li>
+                </ul>
+                <p style="margin-top: 20px; font-size: 22px;">কিয়াস হলো একটি শরয়ী ইজতিহাদ। কুরআন-হাদিসের আলোকে নতুন বিষয়ে আন্তরিক চেষ্টা করা আল্লাহর কাছে প্রিয় আমল।</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 10: Examples -->
+<div class="slide-container" id="slide10">
+    <h2 class="slide-title" contenteditable="true">কিয়াসের বাস্তব উদাহরণ</h2>
+    <div class="content-area">
+        <div class="two-column">
+            <div style="background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);" contenteditable="true">
+                <h3 style="color: #B91C1C; margin-bottom: 15px;"><i class="fa-solid fa-ban"></i> ১. আধুনিক মাদক (ড্রাগস)</h3>
+                <p><strong>আসল:</strong> মদের (খামর) নিষেধাজ্ঞা।</p>
+                <p><strong>ইল্লাহ (কারণ):</strong> নেশা সৃষ্টি ও বুদ্ধি লোপ পাওয়া।</p>
+                <p><strong>ফার (নতুন):</strong> হিরোইন, ইয়াবা, কোকেন।</p>
+                <p><strong>হুকুম:</strong> যেহেতু এগুলোও নেশা সৃষ্টি করে, তাই কিয়াস অনুযায়ী এগুলোও <strong>হারাম</strong>।</p>
+            </div>
+            <div style="background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);" contenteditable="true">
+                <h3 style="color: #B45309; margin-bottom: 15px;"><i class="fa-solid fa-money-bill-wave"></i> ২. কাগুজে টাকার সুদ</h3>
+                <p><strong>আসল:</strong> স্বর্ণ ও রৌপ্যের সুদ।</p>
+                <p><strong>ইল্লাহ (কারণ):</strong> মূল্যের একক ও লেনদেনের মাধ্যম।</p>
+                <p><strong>ফার (নতুন):</strong> আধুনিক কাগুজে টাকা (নোট)।</p>
+                <p><strong>হুকুম:</strong> টাকার লেনদেনেও সুদ নেওয়া <strong>হারাম</strong>।</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 11: Arguments For -->
+<div class="slide-container" id="slide11">
+    <h2 class="slide-title" contenteditable="true">কিয়াসের পক্ষে আলেমদের দলিল</h2>
+    <div class="content-area">
+        <div class="two-column">
+            <div contenteditable="true">
+                 <ul style="font-size: 24px;">
+                     <li><i class="fa-solid fa-check" style="color: #065F46;"></i> <strong>কুরআন:</strong> "ফাতাবিরু" (শিক্ষা ও তুলনা করো) আয়াত দ্বারা নির্দেশনা।</li>
+                     <li><i class="fa-solid fa-check" style="color: #065F46;"></i> <strong>সুন্নাহ:</strong> মু'আয (রা.)-এর হাদিস ও ইজতিহাদের অনুমোদনের হাদিস।</li>
+                     <li><i class="fa-solid fa-check" style="color: #065F46;"></i> <strong>সাহাবাদের আমল:</strong> হযরত উমর (রা.), আলী (রা.) ও ইবনে মাসউদ (রা.) নতুন সমস্যায় কিয়াস করতেন।</li>
+                     <li><i class="fa-solid fa-check" style="color: #065F46;"></i> <strong>ইজমা:</strong> চার ইমাম ও জুমহুর আলেম কিয়াসকে শরিয়াহর দলিল হিসেবে গ্রহণ করেছেন।</li>
+                 </ul>
+            </div>
+            <div class="image-wrapper">
+                <img src="http://googleusercontent.com/image_collection/image_retrieval/1097747332050922319" alt="Books representing scholar consensus">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 12: Counter Arguments (UPDATED WITH IMAGE) -->
+<div class="slide-container" id="slide12">
+    <h2 class="slide-title" contenteditable="true">বিপক্ষ দলের যুক্তি ও জবাব</h2>
+    <div class="content-area">
+        <div class="two-column">
+            <div contenteditable="true">
+                <div style="background: #FEF2F2; padding: 25px; border-radius: 12px; margin-bottom: 20px;">
+                    <h3 style="color: #991B1B;">বিপক্ষের যুক্তি</h3>
+                    <p style="font-size: 20px;">১. <em>"হুকুম তো কেবল আল্লাহরই।"</em></p>
+                    <p style="font-size: 20px;">২. <em>"যার সম্পর্কে জ্ঞান নেই, তার অনুসরণ করো না।"</em></p>
+                    <p style="font-size: 20px; font-weight: 600;">দাবি: কিয়াস অনুমাননির্ভর।</p>
+                </div>
+                <div style="background: #F0FDF4; padding: 25px; border-radius: 12px;">
+                    <h3 style="color: #065F46;">জুমহুর আলেমদের জবাব</h3>
+                    <p style="font-size: 20px;">১. কিয়াস কুরআন-হাদিসের 'ইল্লাহ' ভিত্তিক।</p>
+                    <p style="font-size: 20px;">২. এটি আল্লাহর হুকুমেরই নতুন প্রয়োগ।</p>
+                </div>
+            </div>
+            <div class="image-wrapper">
+                <img src="http://googleusercontent.com/image_collection/image_retrieval/15765200209286457229" alt="Scholars discussing or debating">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE 13: Conclusion -->
+<div class="slide-container full-bg-image" id="slide13" style="background-image: url('http://googleusercontent.com/image_collection/image_retrieval/3142087864045704021');">
+    <div class="content-overlay" contenteditable="true">
+        <h2>উপসংহার</h2>
+        <p style="font-size: 24px; margin: 20px 0;">কিয়াস কুরআন-সুন্নাহ ভিত্তিক একটি স্বীকৃত ইজতিহাদি পদ্ধতি। আধুনিক যুগে নতুন প্রযুক্তি, চিকিৎসা ও অর্থনীতির সমস্যা সমাধানে কিয়াস অপরিহার্য।</p>
+        <div style="margin-top: 40px; border: 2px solid rgba(255,255,255,0.3); padding: 20px; border-radius: 8px;">
+            <p style="font-size: 28px; font-weight: 700;">“আল্লাহ আমাদেরকে সঠিকভাবে শরিয়াহ মেনে চলার তাওফিক দিন। আমীন।”</p>
+        </div>
+        <p style="margin-top: 30px; font-size: 20px;">ধন্যবাদ | কোনো প্রশ্ন?</p>
+    </div>
+</div>
+
+</body>
 </html>
