@@ -22,12 +22,7 @@ export default function Payment() {
   const selectedCard = cards.find((c) => c.id === selectedCardId) || null;
 
   const handleConfirm = () => {
-    console.log("PAY & CONFIRM", {
-      method,
-      card: selectedCard,
-      total,
-    });
-    alert("Payment confirmed! (demo)");
+    navigate("/payment-success", { state: { total } });
   };
 
   const handleAddNew = () => {
@@ -259,21 +254,21 @@ export default function Payment() {
 
         {/* PAY & CONFIRM */}
         <button
-          onClick={handleConfirm}
-          style={{
-            width: "100%",
-            padding: "11px 0",
-            borderRadius: 10,
-            border: "none",
-            background: ORANGE,
-            color: "#fff",
-            fontWeight: 700,
-            cursor: "pointer",
-            fontSize: "0.9rem",
-          }}
-        >
-          PAY & CONFIRM
-        </button>
+        onClick={handleConfirm}
+       style={{
+      width: "100%",
+      padding: "11px 0",
+      borderRadius: 10,
+      border: "none",
+      background: ORANGE,
+      color: "#fff",
+      fontWeight: 700,
+      cursor: "pointer",
+      fontSize: "0.9rem",
+       }}
+>
+  PAY & CONFIRM
+</button>
       </div>
     </div>
   );

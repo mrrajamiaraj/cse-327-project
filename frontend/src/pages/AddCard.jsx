@@ -24,7 +24,7 @@ export default function AddCard() {
     alert("Card added & payment done! (demo)");
 
     // after saving card you can change this to navigate("/payment") or home
-    navigate(-1);
+    navigate("/payment-success", { state: { total } });
   };
 
   return (
