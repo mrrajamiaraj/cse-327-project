@@ -34,6 +34,7 @@ import Burgers from "./pages/Burgers.jsx";
 import FoodDetails from "./pages/FoodDetails.jsx";
 import RestaurantView from "./pages/RestaurantView.jsx";  // ✅ correct file
 import AddAddress from "./pages/AddAddress.jsx";
+import SellerDashboard from "./pages/SellerDashboard.jsx";
 
 
 
@@ -83,6 +84,9 @@ export default function App() {
             </Link>
             <Link to="/cart" style={{ color: "#fff", textDecoration: "none" }}>
               Cart
+            </Link>
+            <Link to="/seller-dashboard" style={{ color: "#fff", textDecoration: "none" }}>
+              Seller
             </Link>
             <Link to="/checkout" style={{ color: "#fff", textDecoration: "none" }}>
               Checkout
@@ -134,6 +138,7 @@ export default function App() {
           <Route path="/search" element={<Search />} />
           <Route path="/burgers" element={<Burgers />} />
           <Route path="/food-details" element={<FoodDetails />} />
+          <Route path="/seller-dashboard" element={<SellerDashboard />} />
           
         </Routes>
       </main>
