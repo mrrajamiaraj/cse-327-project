@@ -9,7 +9,11 @@ const ORANGE = "#ff7a00";
 export default function PaymentSuccess() {
   const navigate = useNavigate();
   const location = useLocation();
-  const total = location.state?.total; // optional, if you want to show it later
+  const total = location.state?.total;
+  const orderId = location.state?.orderId;
+  const status = location.state?.status;
+  const bkashData = location.state?.bkashData;
+  const cardData = location.state?.cardData;
 
   const handleTrackOrder = () => {
     // for now go to HomeScreen; change to "/orders" if you create order tracking
@@ -92,13 +96,64 @@ export default function PaymentSuccess() {
             style={{
               fontSize: "0.8rem",
               color: "#888",
-              marginBottom: 32,
+              marginBottom: 16,
             }}
           >
             You successfully made a payment,
             <br />
             enjoy our service!
           </div>
+
+          {/* Order details */}
+          {orderId && (
+            <div
+              style={{
+                background: "#f8f9fa",
+                borderRadius: 8,
+                padding: "12px",
+                marginBottom: 16,
+                fontSize: "0.75rem",
+              }}
+            >
+              <div style={{ color: "#666", marginBottom: 4 }}>
+                Order ID: <span style={{ fontWeight: 600, color: "#333" }}>#{orderId}</span>
+              </div>
+              {total && (
+                <div style={{ color: "#666", marginBottom: 4 }}>
+                  Total: <span style={{ fontWeight: 600, color: "#333" }}>৳{total}</span>
+                </div>
+              )}
+              <div style={{ color: "#666" }}>
+                Status: <span style={{ fontWeight: 600, color: ORANGE }}>{status || 'Pending'}</span>
+              </div>
+              {bkashData && (
+                <div style={{ color: "#666", marginTop: 8, padding: "8px", background: "#fce4ec", borderRadius: 4 }}>
+                  <div style={{ fontWeight: 600, color: "#e2136e", marginBottom: 4 }}>
+                    📱 Bkash Payment Details
+                  </div>
+                  <div style={{ fontSize: "0.7rem" }}>
+                    Transaction ID: <span style={{ fontWeight: 600 }}>{bkashData.transactionId}</span>
+                  </div>
+                  <div style={{ fontSize: "0.7rem" }}>
+                    From: <span style={{ fontWeight: 600 }}>{bkashData.phoneNumber}</span>
+                  </div>
+                </div>
+              )}
+              {cardData && (
+                <div style={{ color: "#666", marginTop: 8, padding: "8px", background: cardData.cardType === "Visa" ? "#e3f2fd" : "#fce4ec", borderRadius: 4 }}>
+                  <div style={{ fontWeight: 600, color: cardData.cardType === "Visa" ? "#1976d2" : "#d32f2f", marginBottom: 4 }}>
+                    💳 {cardData.cardType} Payment Details
+                  </div>
+                  <div style={{ fontSize: "0.7rem" }}>
+                    Transaction ID: <span style={{ fontWeight: 600 }}>{cardData.transactionId}</span>
+                  </div>
+                  <div style={{ fontSize: "0.7rem" }}>
+                    Card: <span style={{ fontWeight: 600 }}>•••• •••• •••• {cardData.cardNumber}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* TRACK ORDER button */}
           <button

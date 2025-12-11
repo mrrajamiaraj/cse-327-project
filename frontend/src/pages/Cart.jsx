@@ -9,12 +9,42 @@ export default function Cart() {
 
   const [cartData, setCartData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [defaultAddress, setDefaultAddress] = useState(null);
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [addresses, setAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [selectedAddress, setSelectedAddress] = useState(null);
 
   useEffect(() => {
     fetchCart();
-    fetchDefaultAddress();
+    fetchAddresses();
+    loadSelectedAddress();
   }, []);
+
+  const fetchAddresses = async () => {
+    try {
+      const response = await api.get('customer/addresses/');
+      setAddresses(response.data);
+    } catch (error) {
+      console.error("Error fetching addresses:", error);
+    }
+  };
+
+  const loadSelectedAddress = () => {
+    // Load selected delivery address from localStorage
+    const savedAddressId = localStorage.getItem("selectedDeliveryAddressId");
+    const savedAddress = localStorage.getItem("selectedDeliveryAddress");
+    
+    if (savedAddressId && savedAddress) {
+      setSelectedAddressId(parseInt(savedAddressId));
+      setSelectedAddress(JSON.parse(savedAddress));
+    } else {
+      // Fallback to current location if available
+      const sessionLocation = sessionStorage.getItem('currentSessionLocation');
+      if (sessionLocation) {
+        setSelectedAddress(JSON.parse(sessionLocation));
+      }
+    }
+  };
 
   const fetchCart = async () => {
     try {
@@ -30,25 +60,28 @@ export default function Cart() {
     }
   };
 
-  const fetchDefaultAddress = async () => {
-    try {
-      const response = await api.get('customer/addresses/');
-      const defaultAddr = response.data.find(addr => addr.is_default);
-      setDefaultAddress(defaultAddr);
-    } catch (error) {
-      console.error("Error fetching address:", error);
+  const handleSelectAddress = (address) => {
+    localStorage.setItem("selectedDeliveryAddressId", address.id);
+    localStorage.setItem("selectedDeliveryAddress", JSON.stringify(address));
+    setSelectedAddressId(address.id);
+    setSelectedAddress(address);
+    setShowAddressModal(false);
+  };
+
+  const handleSelectCurrentLocation = () => {
+    localStorage.removeItem("selectedDeliveryAddressId");
+    localStorage.removeItem("selectedDeliveryAddress");
+    setSelectedAddressId(null);
+    const sessionLocation = sessionStorage.getItem('currentSessionLocation');
+    if (sessionLocation) {
+      setSelectedAddress(JSON.parse(sessionLocation));
     }
+    setShowAddressModal(false);
   };
 
   const updateQty = async (cartItemId, newQuantity) => {
+    // Don't allow quantity to go below 1
     if (newQuantity < 1) {
-      // Remove item if quantity is 0
-      try {
-        await api.delete(`customer/cart/${cartItemId}/remove_item/`);
-        fetchCart();
-      } catch (error) {
-        console.error("Error removing item:", error);
-      }
       return;
     }
     
@@ -312,7 +345,7 @@ export default function Cart() {
           >
             <span>DELIVERY ADDRESS</span>
             <button
-              onClick={() => navigate("/addresses")}
+              onClick={() => setShowAddressModal(true)}
               style={{
                 border: "none",
                 background: "transparent",
@@ -322,11 +355,12 @@ export default function Cart() {
                 fontWeight: 600,
               }}
             >
-              EDIT
+              CHANGE
             </button>
           </div>
 
           <div
+            onClick={() => setShowAddressModal(true)}
             style={{
               background: "#f4f6fb",
               borderRadius: 8,
@@ -334,9 +368,22 @@ export default function Cart() {
               fontSize: "0.8rem",
               color: "#555",
               marginBottom: 12,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
             }}
           >
-            {defaultAddress ? defaultAddress.address : "No address set"}
+            <span>
+              {selectedAddress 
+                ? (selectedAddress.title 
+                    ? `${selectedAddress.title} - ${selectedAddress.address?.includes("|||") 
+                        ? selectedAddress.address.split("|||").filter(Boolean).join(", ")
+                        : selectedAddress.address}`
+                    : selectedAddress.address)
+                : "Select delivery address"}
+            </span>
+            <span style={{ fontSize: "0.9rem", color: "#999" }}>▼</span>
           </div>
 
           {/* total breakdown */}
@@ -394,6 +441,179 @@ export default function Cart() {
             PLACE ORDER
           </button>
         </div>
+
+        {/* Address Selection Modal */}
+        {showAddressModal && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0,0,0,0.5)",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              zIndex: 1000,
+            }}
+            onClick={() => setShowAddressModal(false)}
+          >
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 20,
+                padding: "20px",
+                maxWidth: 380,
+                width: "90%",
+                maxHeight: "80vh",
+                overflowY: "auto",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ margin: "0 0 16px 0", fontSize: "1.1rem", color: "#333" }}>
+                Select Delivery Address
+              </h3>
+
+              {/* Current Location */}
+              {sessionStorage.getItem('currentSessionLocation') && (
+                <div
+                  onClick={handleSelectCurrentLocation}
+                  style={{
+                    background: selectedAddressId === null ? "#fff7f0" : "#f9f9f9",
+                    border: selectedAddressId === null ? `2px solid ${ORANGE}` : "1px solid #e5e7eb",
+                    borderRadius: 12,
+                    padding: "12px",
+                    marginBottom: 10,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: "1.2rem" }}>📍</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 2 }}>
+                        Current Location
+                      </div>
+                      <div style={{ fontSize: "0.75rem", color: "#666" }}>
+                        {JSON.parse(sessionStorage.getItem('currentSessionLocation')).address}
+                      </div>
+                    </div>
+                    {selectedAddressId === null && (
+                      <div style={{
+                        padding: "4px 8px",
+                        borderRadius: 6,
+                        background: ORANGE,
+                        color: "#fff",
+                        fontSize: "0.65rem",
+                        fontWeight: 600,
+                      }}>
+                        SELECTED
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Saved Addresses */}
+              {addresses.map((addr) => {
+                const isSelected = addr.id === selectedAddressId;
+                return (
+                  <div
+                    key={addr.id}
+                    onClick={() => handleSelectAddress(addr)}
+                    style={{
+                      background: isSelected ? "#fff7f0" : "#f9f9f9",
+                      border: isSelected ? `2px solid ${ORANGE}` : "1px solid #e5e7eb",
+                      borderRadius: 12,
+                      padding: "12px",
+                      marginBottom: 10,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: "1.2rem" }}>
+                        {addr.title === "Home" ? "🏠" : addr.title === "Work" ? "🏢" : "📍"}
+                      </span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 2 }}>
+                          {addr.title}
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "#666" }}>
+                          {addr.address.includes("|||") 
+                            ? addr.address.split("|||").filter(Boolean).join(", ")
+                            : addr.address
+                          }
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <div style={{
+                          padding: "4px 8px",
+                          borderRadius: 6,
+                          background: ORANGE,
+                          color: "#fff",
+                          fontSize: "0.65rem",
+                          fontWeight: 600,
+                        }}>
+                          SELECTED
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Use Current Location Button */}
+              <button
+                onClick={() => {
+                  setShowAddressModal(false);
+                  navigate('/location');
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: ORANGE,
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                  marginTop: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                }}
+              >
+                📍 Use Current Location
+              </button>
+
+              {/* Add New Address Button */}
+              <button
+                onClick={() => {
+                  setShowAddressModal(false);
+                  navigate('/add-address');
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: 10,
+                  border: `2px dashed ${ORANGE}`,
+                  background: "#fff",
+                  color: ORANGE,
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer",
+                  marginTop: 10,
+                }}
+              >
+                + Add New Address
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -21,6 +21,7 @@ class RegisterView(APIView):
         email = request.data.get("email")
         password = request.data.get("password")
         first_name = request.data.get("first_name", "").strip()
+        phone = request.data.get("phone", "").strip()
         role = request.data.get("role", "customer")
 
         # Validate required fields
@@ -53,6 +54,7 @@ class RegisterView(APIView):
             email=email,
             password=password,
             first_name=first_name,
+            phone=phone,
             role=role
         )
 
@@ -91,15 +93,25 @@ class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        serializer = UserSerializer(request.user)
+        serializer = UserSerializer(request.user, context={'request': request})
         return Response(serializer.data)
 
     def put(self, request):
-        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        # Debug: Print what we're receiving
+        print("=== ProfileView PUT Debug ===")
+        print("request.data:", request.data)
+        print("request.FILES:", request.FILES)
+        print("Avatar in FILES:", 'avatar' in request.FILES)
+        
+        serializer = UserSerializer(request.user, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
+            print("Serializer saved successfully")
+            print("User avatar after save:", request.user.avatar)
             return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            print("Serializer errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 # Customer
 class HomeView(viewsets.ViewSet):
@@ -143,13 +155,33 @@ class CartViewSet(viewsets.ViewSet):
     def create(self, request):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         food = get_object_or_404(Food, id=request.data['food_id'])
+        
+        # Check if food is available
+        if not food.is_available:
+            return Response({'error': 'This item is currently unavailable'}, status=400)
+        
+        requested_quantity = request.data.get('quantity', 1)
         item, created = CartItem.objects.get_or_create(cart=cart, food=food)
+        
         if created:
-            # New item - set initial quantity
-            item.quantity = request.data.get('quantity', 1)
+            # New item - check stock availability
+            if food.stock_quantity < requested_quantity:
+                return Response({
+                    'error': f'Only {food.stock_quantity} items available in stock'
+                }, status=400)
+            item.quantity = requested_quantity
         else:
-            # Existing item - increase quantity
-            item.quantity += request.data.get('quantity', 1)
+            # Existing item - check total quantity against stock
+            total_quantity = item.quantity + requested_quantity
+            if food.stock_quantity < total_quantity:
+                available = max(0, food.stock_quantity - item.quantity)
+                if available <= 0:
+                    return Response({'error': 'No more items available in stock'}, status=400)
+                return Response({
+                    'error': f'Only {available} more items can be added to cart'
+                }, status=400)
+            item.quantity = total_quantity
+            
         item.variants = request.data.get('variants', [])
         item.addons = request.data.get('addons', [])
         item.save()
@@ -160,9 +192,21 @@ class CartViewSet(viewsets.ViewSet):
         """Update cart item quantity"""
         cart_item = get_object_or_404(CartItem, id=pk, cart__user=request.user)
         quantity = request.data.get('quantity', cart_item.quantity)
+        
         if quantity < 1:
             cart_item.delete()
             return Response({'message': 'Item removed'})
+        
+        # Check stock availability for the new quantity
+        food = cart_item.food
+        if not food.is_available:
+            return Response({'error': 'This item is currently unavailable'}, status=400)
+            
+        if food.stock_quantity < quantity:
+            return Response({
+                'error': f'Only {food.stock_quantity} items available in stock'
+            }, status=400)
+            
         cart_item.quantity = quantity
         cart_item.save()
         return Response(CartItemSerializer(cart_item).data)
@@ -184,28 +228,142 @@ class CheckoutView(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def create(self, request):
-        cart = get_object_or_404(Cart, user=request.user)
-        if not cart.items.exists():
-            return Response({'error': 'Empty cart'}, status=400)
-        address = get_object_or_404(Address, id=request.data['address_id'])
-        items = [{'food_id': item.food.id, 'quantity': item.quantity, 'variants': item.variants, 'addons': item.addons} for item in cart.items.all()]
-        subtotal = sum(item.food.price * item.quantity for item in cart.items.all())
-        delivery_fee = 5.00
-        total = subtotal + delivery_fee
-        order = Order.objects.create(
-            user=request.user,
-            restaurant=cart.items.first().food.restaurant,
-            address=address,
-            items=items,
-            subtotal=subtotal,
-            delivery_fee=delivery_fee,
-            total=total,
-            payment_method=request.data['payment_method'],
-            note=request.data.get('note')
-        )
-        cart.items.all().delete()
-        Notification.objects.create(user=request.user, message='Order placed!')
-        return Response({'order_id': order.id, 'status': order.status})
+        try:
+            print(f"=== Checkout Debug ===")
+            print(f"User: {request.user}")
+            print(f"Request data: {request.data}")
+            
+            # Check if cart exists
+            try:
+                cart = Cart.objects.get(user=request.user)
+                print(f"Cart found: {cart.id}")
+            except Cart.DoesNotExist:
+                print("Cart does not exist, creating one")
+                cart = Cart.objects.create(user=request.user)
+            
+            # Check if cart has items
+            cart_items = cart.items.all()
+            print(f"Cart items count: {cart_items.count()}")
+            
+            if not cart_items.exists():
+                print("Cart is empty")
+                return Response({'error': 'Empty cart'}, status=400)
+            
+            # Check address - either saved address or current location
+            address_id = request.data.get('address_id')
+            current_location = request.data.get('current_location')
+            address = None
+            
+            if address_id:
+                # Using saved address
+                print(f"Address ID: {address_id}")
+                try:
+                    address = Address.objects.get(id=address_id, user=request.user)
+                    print(f"Address found: {address.title} - {address.address}")
+                except Address.DoesNotExist:
+                    print(f"Address not found or doesn't belong to user")
+                    return Response({'error': 'Invalid address'}, status=400)
+            elif current_location:
+                # Using current location - will be stored in delivery_location field
+                print(f"Using current location: {current_location}")
+                address = None  # No saved address
+            else:
+                print("No address or current location provided")
+                return Response({'error': 'Address or current location required'}, status=400)
+            
+            # Process cart items
+            items = []
+            subtotal = 0
+            restaurant = None
+            
+            for item in cart_items:
+                print(f"Processing item: {item.food.name} x {item.quantity}")
+                items.append({
+                    'food_id': item.food.id, 
+                    'quantity': item.quantity, 
+                    'variants': item.variants or [], 
+                    'addons': item.addons or []
+                })
+                subtotal += item.food.price * item.quantity
+                if not restaurant:
+                    restaurant = item.food.restaurant
+                    print(f"Restaurant: {restaurant.name}")
+            
+            from decimal import Decimal
+            delivery_fee = Decimal('5.00')
+            total = subtotal + delivery_fee
+            payment_method = request.data.get('payment_method', 'cod')
+            
+            print(f"Order details: subtotal={subtotal}, delivery_fee={delivery_fee}, total={total}, payment_method={payment_method}")
+            
+            # Final stock validation before order creation (prevent race conditions)
+            print("=== Final Stock Validation ===")
+            for item in cart_items:
+                food = item.food
+                print(f"Validating stock for {food.name}: requested={item.quantity}, available={food.stock_quantity}")
+                
+                if not food.is_available:
+                    print(f"Item {food.name} is not available")
+                    return Response({'error': f'{food.name} is currently unavailable'}, status=400)
+                
+                if food.stock_quantity < item.quantity:
+                    print(f"Insufficient stock for {food.name}")
+                    return Response({
+                        'error': f'Insufficient stock for {food.name}. Only {food.stock_quantity} available.'
+                    }, status=400)
+            
+            # Create order
+            order_data = {
+                'user': request.user,
+                'restaurant': restaurant,
+                'address': address,
+                'items': items,
+                'subtotal': subtotal,
+                'delivery_fee': delivery_fee,
+                'total': total,
+                'payment_method': payment_method,
+                'note': request.data.get('note', '')
+            }
+            
+            # Add delivery location if using current location
+            if current_location and not address:
+                order_data['delivery_location'] = current_location
+                print(f"Storing delivery location: {current_location}")
+            
+            order = Order.objects.create(**order_data)
+            
+            print(f"Order created: {order.id}")
+            
+            # Reduce stock quantities for ordered items
+            print("=== Reducing Stock ===")
+            for item in cart_items:
+                food = item.food
+                old_stock = food.stock_quantity
+                success = food.reduce_stock(item.quantity)
+                new_stock = food.stock_quantity
+                print(f"Stock reduction for {food.name}: {old_stock} -> {new_stock} (reduced by {item.quantity})")
+                
+                if not success:
+                    print(f"WARNING: Failed to reduce stock for {food.name} - insufficient stock!")
+                    # Note: Order is already created, so we log this as a warning
+                    # In production, you might want to handle this differently
+            
+            # Clear cart
+            cart.items.all().delete()
+            print("Cart cleared")
+            
+            # Create notification
+            Notification.objects.create(user=request.user, message='Order placed!')
+            print("Notification created")
+            
+            return Response({'order_id': order.id, 'status': order.status})
+            
+        except Exception as e:
+            print(f"Checkout error: {str(e)}")
+            print(f"Error type: {type(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({'error': f'Checkout failed: {str(e)}'}, status=500)
 
 class AddressViewSet(viewsets.ModelViewSet):
     serializer_class = AddressSerializer

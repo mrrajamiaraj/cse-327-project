@@ -36,6 +36,8 @@ class User(AbstractUser):
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='customer')
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    phone = models.CharField(max_length=20, null=True, blank=True, help_text="Bangladesh phone number format: +880 1XXX-XXXXXX or 01XXX-XXXXXX")
+    bio = models.TextField(max_length=500, null=True, blank=True, help_text="Short bio or description")
     is_online = models.BooleanField(default=False)  # for rider
 
     # Make username optional - we will use email as login
@@ -159,9 +161,36 @@ class Food(models.Model):
     is_veg = models.BooleanField(default=True)
     ingredients = models.TextField(null=True)
     available_addons = models.ManyToManyField(Addon, blank=True, help_text="Select addons available for this food item")
+    
+    # Inventory Management
+    stock_quantity = models.PositiveIntegerField(default=0, help_text="Available quantity in stock")
+    is_available = models.BooleanField(default=True, help_text="Whether this item is currently available")
 
     def __str__(self):
         return self.name
+    
+    @property
+    def stock_status(self):
+        """Get stock status for admin display"""
+        if not self.is_available:
+            return "❌ Unavailable"
+        elif self.stock_quantity == 0:
+            return "🔴 Out of Stock"
+        elif self.stock_quantity < 5:
+            return f"🟡 Low Stock ({self.stock_quantity})"
+        else:
+            return f"🟢 In Stock ({self.stock_quantity})"
+    
+    def reduce_stock(self, quantity):
+        """Reduce stock quantity when order is placed"""
+        if self.stock_quantity >= quantity:
+            self.stock_quantity -= quantity
+            # Auto-disable if stock reaches 0
+            if self.stock_quantity == 0:
+                self.is_available = False
+            self.save()
+            return True
+        return False
 
 
 class Address(models.Model):
@@ -203,12 +232,13 @@ class Order(models.Model):
     PAYMENT_METHODS = (
         ('cod', 'Cash on Delivery'),
         ('card', 'Card'),
-        ('bank', 'Bank Transfer'),
+        ('mobile_banking', 'Mobile Banking (bKash)'),
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='customer_orders')
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE)
     rider = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='rider_orders')
     address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True)
+    delivery_location = models.JSONField(null=True, blank=True, help_text="Current location data when address is not saved")
     items = models.JSONField()
     subtotal = models.DecimalField(max_digits=10, decimal_places=2)
     delivery_fee = models.DecimalField(max_digits=10, decimal_places=2)
@@ -221,6 +251,14 @@ class Order(models.Model):
     eta = models.CharField(max_length=20, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    def get_delivery_address_display(self):
+        """Get delivery address for display - either saved address or current location"""
+        if self.address:
+            return f"{self.address.title} - {self.address.address}"
+        elif self.delivery_location:
+            return f"Current Location - {self.delivery_location.get('address', 'Coordinates provided')}"
+        return "No delivery address"
 
 
 class Notification(models.Model):
