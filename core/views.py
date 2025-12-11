@@ -699,3 +699,4 @@ class AdminRevenueView(APIView):
         # Mock for Figma
         charts = {'line': [100, 200, 300, 400]}
         return Response({'charts': charts})
+
