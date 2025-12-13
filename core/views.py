@@ -122,7 +122,7 @@ class HomeView(viewsets.ViewSet):
         # Mock data for Figma home
         banners = [{'id': 1, 'image': 'banner.jpg'}]
         popular_foods = Food.objects.order_by('-id')[:5]
-        nearby_restaurants = Restaurant.objects.filter(is_approved=True)[:5]
+        nearby_restaurants = Restaurant.objects.filter(is_approved=True)[:10]  # Increased to show more restaurants
         categories = Category.objects.all()  # Return all categories
         return Response({
             'banners': banners,
