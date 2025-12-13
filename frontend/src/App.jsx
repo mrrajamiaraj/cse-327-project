@@ -15,6 +15,15 @@ import Payment from "./pages/Payment.jsx";
 import AddCard from "./pages/AddCard.jsx";
 import PaymentSuccess from "./pages/PaymentSuccess.jsx";
 import SellerDashboard from "./pages/SellerDashboard.jsx";
+import RunningOrders from "./pages/RunningOrders.jsx";
+import MyFoodList from "./pages/MyFoodList.jsx";
+import AddNewItems from "./pages/AddNewItems.jsx";
+import SellerNotifications from "./pages/SellerNotifications.jsx";
+import SellerMessages from "./pages/SellerMessages.jsx";
+import SellerProfileMenu from "./pages/SellerProfileMenu.jsx";
+
+
+
 
 
 
@@ -128,6 +137,17 @@ export default function App() {
           <Route path="/add-card" element={<AddCard />} />
           <Route path="/payment-success" element={<PaymentSuccess />} />
           <Route path="/seller-dashboard" element={<SellerDashboard />} />
+          <Route path="/running-orders" element={<RunningOrders />} />
+          <Route path="/my-food" element={<MyFoodList />} />
+          <Route path="/add-new-items" element={<AddNewItems />} />
+          <Route path="/seller-notifications" element={<SellerNotifications />} />
+          <Route path="/seller-messages" element={<SellerMessages />} />
+          <Route path="/seller-profile" element={<SellerProfileMenu />} />
+
+
+          
+
+
           
 
 
