@@ -37,7 +37,6 @@ import Burgers from "./pages/Burgers.jsx";
 import FoodDetails from "./pages/FoodDetails.jsx";
 import RestaurantView from "./pages/RestaurantView.jsx";  // ✅ correct file
 import AddAddress from "./pages/AddAddress.jsx";
-import SellerDashboard from "./pages/SellerDashboard.jsx";
 
 
 
