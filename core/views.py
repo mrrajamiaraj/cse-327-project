@@ -733,7 +733,7 @@ class RestaurantReviewViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Review.objects.filter(order__restaurant__owner=self.request.user)ner=self.request.user)
+        return Review.objects.filter(order__restaurant__owner=self.request.user)
 
 # Rider
 class RiderAvailabilityView(APIView):
