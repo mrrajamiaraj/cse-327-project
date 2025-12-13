@@ -3,12 +3,59 @@ from rest_framework import serializers
 from .models import *
 
 class UserSerializer(serializers.ModelSerializer):
+    avatar_url = serializers.SerializerMethodField()
+    
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'avatar', 'role', 'is_online']
+        fields = ['id', 'email', 'first_name', 'last_name', 'phone', 'bio', 'avatar', 'avatar_url', 'role', 'is_online']
         extra_kwargs = {
-            'password': {'write_only': True, 'required': False}
+            'password': {'write_only': True, 'required': False},
+            'avatar': {'required': False}
         }
+    
+    def get_avatar_url(self, obj):
+        """Return full URL for avatar image"""
+        if obj.avatar:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url
+        return None
+    
+    def validate_phone(self, value):
+        """Validate Bangladesh phone number format - temporarily disabled for debugging"""
+        # Temporarily return value as-is for debugging
+        return value
+        
+        # Original validation code (commented out for debugging)
+        # if not value:
+        #     return value
+        # 
+        # import re
+        # # Remove all spaces and dashes for validation
+        # clean_phone = re.sub(r'[\s\-]', '', value)
+        # 
+        # # Bangladesh phone number patterns
+        # patterns = [
+        #     r'^(\+880|880)?1[3-9]\d{8}$',  # +880 1XXX-XXXXXX format
+        #     r'^01[3-9]\d{8}$',             # 01XXX-XXXXXX format
+        # ]
+        # 
+        # if not any(re.match(pattern, clean_phone) for pattern in patterns):
+        #     raise serializers.ValidationError(
+        #         "Invalid Bangladesh phone number format. Use +880 1XXX-XXXXXX or 01XXX-XXXXXX"
+        #     )
+        # 
+        # # Format the phone number consistently
+        # if clean_phone.startswith('+880'):
+        #     clean_phone = clean_phone[4:]
+        # elif clean_phone.startswith('880'):
+        #     clean_phone = clean_phone[3:]
+        # elif clean_phone.startswith('0'):
+        #     clean_phone = clean_phone[1:]
+        # 
+        # # Return formatted phone number
+        # return f"+880 {clean_phone[:4]}-{clean_phone[4:]}"
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
@@ -19,12 +66,31 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
     def update(self, instance, validated_data):
+        print("=== UserSerializer update ===")
+        print("validated_data:", validated_data)
+        print("avatar in validated_data:", 'avatar' in validated_data)
+        
         password = validated_data.pop('password', None)
+        
+        # Handle avatar separately if it exists
+        avatar = validated_data.pop('avatar', None)
+        print("avatar extracted:", avatar)
+        
         for attr, value in validated_data.items():
+            print(f"Setting {attr} = {value}")
             setattr(instance, attr, value)
+            
+        if avatar:
+            print("Setting avatar:", avatar)
+            instance.avatar = avatar
+        else:
+            print("No avatar to set")
+            
         if password:
             instance.set_password(password)
+            
         instance.save()
+        print("Instance saved, avatar field:", instance.avatar)
         return instance
 
 
@@ -36,7 +102,7 @@ class RestaurantSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Restaurant
-        fields = ['id', 'owner', 'name', 'banner', 'cuisine', 'rating', 'delivery_time', 
+        fields = ['id', 'owner', 'name', 'banner', 'cuisine', 'address', 'rating', 'delivery_time', 
                   'is_approved', 'lat', 'lng', 'prep_time_minutes']
         read_only_fields = ['rating', 'delivery_time']
     
@@ -142,7 +208,8 @@ class ReviewSerializer(serializers.ModelSerializer):
 class PaymentMethodSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentMethod
-        fields = '__all__'
+        fields = ['id', 'type', 'details']
+        read_only_fields = ['user']
 
 class TransactionSerializer(serializers.ModelSerializer):
     class Meta:

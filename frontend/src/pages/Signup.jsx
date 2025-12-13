@@ -41,6 +41,7 @@ const inputStyle = {
 export default function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -68,6 +69,7 @@ export default function Signup() {
       const response = await api.post("auth/register/", {
         first_name: name,
         email: email,
+        phone: phone,
         password: password,
         role: "customer", // Forces customer only
       });
@@ -197,6 +199,25 @@ export default function Signup() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                style={inputStyle}
+              />
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 500,
+                  color: "#999",
+                }}
+              >
+                PHONE NUMBER
+              </label>
+              <input
+                type="tel"
+                placeholder="+880 1XXX-XXXXXX"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 style={inputStyle}
               />
             </div>

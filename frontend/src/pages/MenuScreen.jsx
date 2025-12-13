@@ -14,6 +14,10 @@ export default function MenuScreen() {
     const fetchProfile = async () => {
       try {
         const response = await api.get('auth/profile/');
+        console.log("=== MenuScreen Profile Debug ===");
+        console.log("Profile data:", response.data);
+        console.log("avatar:", response.data.avatar);
+        console.log("avatar_url:", response.data.avatar_url);
         setUserProfile(response.data);
       } catch (error) {
         console.error("Error fetching profile:", error);
@@ -140,11 +144,28 @@ export default function MenuScreen() {
                 height: 54,
                 borderRadius: "50%",
                 overflow: "hidden",
-                background: userProfile?.avatar 
-                  ? `url(${userProfile.avatar}) center/cover`
-                  : "url(https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=400) center/cover",
               }}
-            />
+            >
+              <img
+                src={
+                  userProfile?.avatar_url || 
+                  (userProfile?.avatar 
+                    ? (userProfile.avatar.startsWith('http') 
+                        ? userProfile.avatar 
+                        : `http://127.0.0.1:8000${userProfile.avatar}`)
+                    : "https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=400")
+                }
+                alt="Profile"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+                onError={(e) => {
+                  e.target.src = "https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=400";
+                }}
+              />
+            </div>
             <div>
               <div
                 style={{
@@ -156,7 +177,7 @@ export default function MenuScreen() {
                 {userProfile?.first_name || userProfile?.email || "User"}
               </div>
               <div style={{ fontSize: "0.75rem", color: "#999" }}>
-                {userProfile?.role === 'customer' ? 'I love fast food' : userProfile?.role}
+                {userProfile?.bio || (userProfile?.role === 'customer' ? 'I love fast food' : userProfile?.role)}
               </div>
             </div>
           </div>

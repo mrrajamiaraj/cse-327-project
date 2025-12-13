@@ -11,6 +11,10 @@ export default function PersonalInfo() {
     const fetchProfile = async () => {
       try {
         const response = await api.get('auth/profile/');
+        console.log("=== PersonalInfo Profile Debug ===");
+        console.log("Profile data:", response.data);
+        console.log("avatar:", response.data.avatar);
+        console.log("avatar_url:", response.data.avatar_url);
         setUserProfile(response.data);
       } catch (error) {
         console.error("Error fetching profile:", error);
@@ -134,11 +138,29 @@ export default function PersonalInfo() {
                 height: 60,
                 borderRadius: "50%",
                 overflow: "hidden",
-                background: userProfile?.avatar 
-                  ? `url(${userProfile.avatar}) center/cover`
-                  : "url(https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=400) center/cover",
               }}
-            />
+            >
+              <img
+                src={
+                  userProfile?.avatar_url || 
+                  (userProfile?.avatar 
+                    ? (userProfile.avatar.startsWith('http') 
+                        ? userProfile.avatar 
+                        : `http://127.0.0.1:8000${userProfile.avatar}`)
+                    : "https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=400")
+                }
+                alt="Profile"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+                onError={(e) => {
+                  // Fallback to default image if avatar fails to load
+                  e.target.src = "https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=400";
+                }}
+              />
+            </div>
             <div>
               <div
                 style={{
@@ -147,7 +169,9 @@ export default function PersonalInfo() {
                   marginBottom: 2,
                 }}
               >
-                {userProfile?.first_name || userProfile?.email || "User"}
+                {userProfile?.first_name && userProfile?.last_name 
+                  ? `${userProfile.first_name} ${userProfile.last_name}`
+                  : userProfile?.first_name || userProfile?.email || "User"}
               </div>
               <div style={{ fontSize: "0.75rem", color: "#999" }}>
                 {userProfile?.role === 'customer' ? 'Customer' : userProfile?.role}
@@ -166,18 +190,34 @@ export default function PersonalInfo() {
             <InfoRow
               icon="👤"
               label="FULL NAME"
-              value={userProfile?.first_name || "Not set"}
+              value={userProfile?.first_name && userProfile?.last_name 
+                ? `${userProfile.first_name} ${userProfile.last_name}`
+                : userProfile?.first_name || "Not set"}
             />
             <InfoRow
               icon="✉️"
               label="EMAIL"
               value={userProfile?.email || "Not set"}
             />
+            {userProfile?.phone && (
+              <InfoRow
+                icon="📱"
+                label="PHONE"
+                value={userProfile.phone}
+              />
+            )}
             <InfoRow
               icon="🎭"
               label="ROLE"
               value={userProfile?.role || "customer"}
             />
+            {userProfile?.bio && (
+              <InfoRow
+                icon="📝"
+                label="BIO"
+                value={userProfile.bio}
+              />
+            )}
             {/* User ID */}
             <InfoRow
               icon="🆔"
