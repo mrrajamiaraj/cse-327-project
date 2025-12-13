@@ -20,7 +20,12 @@ import MyFoodList from "./pages/MyFoodList.jsx";
 import AddNewItems from "./pages/AddNewItems.jsx";
 import SellerNotifications from "./pages/SellerNotifications.jsx";
 import SellerMessages from "./pages/SellerMessages.jsx";
-import SellerProfileMenu from "./pages/SellerProfileMenu.jsx";
+import SellerProfile from "./pages/SellerProfile.jsx";
+import WithdrawHistory from "./pages/WithdrawHistory.jsx";
+import OrderHistory from "./pages/OrderHistory.jsx";
+import SellerReviews from "./pages/SellerReviews.jsx";
+import TotalRevenue from "./pages/TotalRevenue.jsx";
+import CustomerMap from "./pages/CustomerMap.jsx";
 
 
 
@@ -142,7 +147,12 @@ export default function App() {
           <Route path="/add-new-items" element={<AddNewItems />} />
           <Route path="/seller-notifications" element={<SellerNotifications />} />
           <Route path="/seller-messages" element={<SellerMessages />} />
-          <Route path="/seller-profile" element={<SellerProfileMenu />} />
+          <Route path="/seller-profile" element={<SellerProfile />} />
+          <Route path="/withdraw-history" element={<WithdrawHistory />} />
+          <Route path="/order-history" element={<OrderHistory />} />
+          <Route path="/seller-reviews" element={<SellerReviews />} />
+          <Route path="/total-revenue" element={<TotalRevenue />} />
+          <Route path="/customer-map" element={<CustomerMap />} />
 
 
           
