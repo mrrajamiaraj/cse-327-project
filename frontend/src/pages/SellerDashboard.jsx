@@ -586,6 +586,8 @@ function StatCard({ value, label }) {
 }
 
 function BottomNav() {
+  const navigate = useNavigate();
+
   return (
     <div
       style={{
@@ -604,10 +606,16 @@ function BottomNav() {
       }}
     >
       <button style={navButtonStyle}>▦</button>
-      <button style={navButtonStyle}>≡</button>
+      <button 
+        style={navButtonStyle}
+        onClick={() => navigate("/running-orders")}
+      >
+        ≡
+      </button>
 
       {/* center plus – highlighted */}
       <button
+        onClick={() => navigate("/add-new-items")}
         style={{
           width: 40,
           height: 40,
@@ -621,13 +629,24 @@ function BottomNav() {
           fontSize: "1.3rem",
           marginTop: -22,
           boxShadow: "0 4px 12px rgba(255,122,0,0.55)",
+          cursor: "pointer",
         }}
       >
         +
       </button>
 
-      <button style={navButtonStyle}>🔔</button>
-      <button style={navButtonStyle}>👤</button>
+      <button 
+        style={navButtonStyle}
+        onClick={() => navigate("/seller-notifications")}
+      >
+        🔔
+      </button>
+      <button 
+        style={navButtonStyle}
+        onClick={() => navigate("/seller-profile")}
+      >
+        👤
+      </button>
     </div>
   );
 }

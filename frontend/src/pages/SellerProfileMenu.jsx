@@ -1,9 +1,116 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../services/api";
 
 const ORANGE = "#ff7a00";
 
 export default function SellerProfileMenu() {
+  const [profileData, setProfileData] = useState({
+    balance: 0,
+    totalOrders: 0,
+    restaurantName: "",
+    ownerName: ""
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchProfileData();
+  }, []);
+
+  const fetchProfileData = async () => {
+    try {
+      setLoading(true);
+      
+      // Check if user is logged in and is a restaurant owner
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!user.id || user.role !== 'restaurant') {
+        navigate("/login");
+        return;
+      }
+
+      // Fetch restaurant analytics and profile
+      const [analyticsResponse, profileResponse] = await Promise.all([
+        api.get('/restaurant/analytics/'),
+        api.get('/restaurant/profile/')
+      ]);
+      
+      const analytics = analyticsResponse.data;
+      const restaurant = profileResponse.data;
+      
+      // Calculate estimated balance (simplified calculation)
+      const estimatedBalance = analytics.daily_revenue * 30; // Rough monthly estimate
+      
+      setProfileData({
+        balance: estimatedBalance,
+        totalOrders: analytics.total_orders,
+        restaurantName: restaurant.name,
+        ownerName: `${user.first_name} ${user.last_name}`.trim() || user.email
+      });
+      
+    } catch (error) {
+      console.error("Error fetching profile data:", error);
+      setError("Failed to load profile data");
+      
+      if (error.response?.status === 401) {
+        localStorage.clear();
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to log out?")) {
+      localStorage.clear();
+      navigate("/login");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={pageWrap}>
+        <div style={{ width: "100%", maxWidth: 360 }}>
+          <div style={pageTitle}>Menu</div>
+          <div style={{...phoneCard, display: "flex", alignItems: "center", justifyContent: "center"}}>
+            <div style={{ textAlign: "center", color: "#666" }}>
+              Loading profile...
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={pageWrap}>
+        <div style={{ width: "100%", maxWidth: 360 }}>
+          <div style={pageTitle}>Menu</div>
+          <div style={{...phoneCard, display: "flex", alignItems: "center", justifyContent: "center"}}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ color: "#ff4444", marginBottom: "10px" }}>{error}</div>
+              <button
+                onClick={fetchProfileData}
+                style={{
+                  padding: "8px 16px",
+                  background: ORANGE,
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={pageWrap}>
@@ -18,15 +125,21 @@ export default function SellerProfileMenu() {
             </button>
 
             <div style={{ textAlign: "center", color: "#fff" }}>
-              <div style={{ fontSize: "0.78rem", fontWeight: 700 }}>My Profile</div>
+              <div style={{ fontSize: "0.78rem", fontWeight: 700 }}>
+                {profileData.restaurantName || "My Profile"}
+              </div>
               <div style={{ fontSize: "0.65rem", opacity: 0.9, marginTop: 10 }}>
-                Available Balance
+                Estimated Balance
               </div>
               <div style={{ fontSize: "1.3rem", fontWeight: 900, marginTop: 4 }}>
-                ৳50000.00
+                ৳{profileData.balance.toFixed(2)}
               </div>
 
-              <button style={withdrawBtn} type="button">
+              <button 
+                style={withdrawBtn} 
+                type="button"
+                onClick={() => alert("Withdrawal feature coming soon!")}
+              >
                 Withdraw
               </button>
             </div>
@@ -37,11 +150,11 @@ export default function SellerProfileMenu() {
           {/* menu list */}
           <div style={{ padding: "14px 12px" }}>
             <MenuItem icon="👤" label="Personal Info" onClick={() => navigate("/personal-info")} />
-            <MenuItem icon="⚙️" label="Settings" onClick={() => navigate("/settings")} />
-            <MenuItem icon="📄" label="Withdrawal History" onClick={() => navigate("/withdraw-history")} />
-            <MenuItem icon="🧾" label="Number of Orders" rightText="29K" />
-            <MenuItem icon="⭐" label="User Reviews" onClick={() => navigate("/seller-reviews")} />
-            <MenuItem icon="⤵️" label="Log Out" />
+            <MenuItem icon="⚙️" label="Settings" onClick={() => alert("Settings coming soon!")} />
+            <MenuItem icon="📄" label="Withdrawal History" onClick={() => alert("Withdrawal history coming soon!")} />
+            <MenuItem icon="🧾" label="Number of Orders" rightText={profileData.totalOrders.toString()} />
+            <MenuItem icon="⭐" label="User Reviews" onClick={() => alert("Reviews coming soon!")} />
+            <MenuItem icon="⤵️" label="Log Out" onClick={handleLogout} />
           </div>
 
           {/* bottom nav */}

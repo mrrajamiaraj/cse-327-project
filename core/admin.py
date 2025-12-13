@@ -123,4 +123,76 @@ class RiderLocationAdmin(admin.ModelAdmin):
 
 @admin.register(OrderChatMessage)
 class OrderChatMessageAdmin(admin.ModelAdmin):
-    list_display = ('order', 'sender', 'message', 'created_at')
+    list_display = ('get_order_info', 'get_sender_info', 'get_message_preview', 'created_at')
+    list_filter = ('sender__role', 'order__status', 'created_at')
+    search_fields = ('message', 'order__id', 'sender__email', 'order__restaurant__name')
+    ordering = ('-created_at',)
+    
+    fieldsets = (
+        ('Message Details', {
+            'fields': ('order', 'sender', 'message', 'image'),
+            'description': 'Select the order and sender, then type your message. Image is optional.'
+        }),
+        ('Participants Info', {
+            'fields': (),
+            'description': 'Order participants will be shown after selecting an order.'
+        }),
+    )
+    
+    def get_order_info(self, obj):
+        """Display order info with participants"""
+        participants = []
+        if obj.order.user:
+            participants.append(f"👤 {obj.order.user.email} (Customer)")
+        if obj.order.restaurant.owner:
+            participants.append(f"🏪 {obj.order.restaurant.owner.email} (Restaurant)")
+        if obj.order.rider:
+            participants.append(f"🚴 {obj.order.rider.email} (Rider)")
+        
+        return f"Order #{obj.order.id} - {obj.order.restaurant.name}\nParticipants: {', '.join(participants)}"
+    get_order_info.short_description = 'Order & Participants'
+    
+    def get_sender_info(self, obj):
+        """Display sender with role"""
+        role_icons = {
+            'customer': '👤',
+            'restaurant': '🏪', 
+            'rider': '🚴',
+            'admin': '👑'
+        }
+        icon = role_icons.get(obj.sender.role, '👤')
+        return f"{icon} {obj.sender.email} ({obj.sender.role.title()})"
+    get_sender_info.short_description = 'Sender'
+    
+    def get_message_preview(self, obj):
+        """Show message preview with image indicator"""
+        preview = obj.message[:100] + "..." if len(obj.message) > 100 else obj.message
+        if obj.image:
+            preview += " 📷"
+        return preview
+    get_message_preview.short_description = 'Message'
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        """Customize the dropdown options"""
+        if db_field.name == "order":
+            # Show orders with more context
+            kwargs["queryset"] = Order.objects.select_related('user', 'restaurant', 'rider').order_by('-created_at')
+        elif db_field.name == "sender":
+            # Show users with role context
+            kwargs["queryset"] = User.objects.all().order_by('role', 'email')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    
+    def save_model(self, request, obj, form, change):
+        """Add helpful validation"""
+        # Validate that sender is a participant in the order
+        valid_senders = [obj.order.user, obj.order.restaurant.owner]
+        if obj.order.rider:
+            valid_senders.append(obj.order.rider)
+        
+        if obj.sender not in valid_senders:
+            from django.contrib import messages
+            messages.warning(request, 
+                f"Warning: {obj.sender.email} is not a participant in Order #{obj.order.id}. "
+                f"Valid participants are: {', '.join([u.email for u in valid_senders if u])}")
+        
+        super().save_model(request, obj, form, change)

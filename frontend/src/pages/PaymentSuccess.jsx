@@ -16,8 +16,7 @@ export default function PaymentSuccess() {
   const cardData = location.state?.cardData;
 
   const handleTrackOrder = () => {
-    // for now go to HomeScreen; change to "/orders" if you create order tracking
-    navigate("/home");
+    navigate("/my-orders");
   };
 
   return (

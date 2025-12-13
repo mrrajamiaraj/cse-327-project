@@ -530,7 +530,14 @@ class MenuItemViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         restaurant = get_object_or_404(Restaurant, owner=self.request.user)
-        serializer.save(restaurant=restaurant)
+        
+        # Handle category creation by name
+        category_name = self.request.data.get('category_name')
+        if category_name:
+            category, created = Category.objects.get_or_create(name=category_name)
+            serializer.save(restaurant=restaurant, category=category)
+        else:
+            serializer.save(restaurant=restaurant)
 
 class RestaurantOrderViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = OrderSerializer
@@ -560,6 +567,18 @@ class RestaurantOrderViewSet(viewsets.ReadOnlyModelViewSet):
         order.status = 'cancelled'
         order.save()
         return Response({'status': order.status})
+
+    @action(detail=True, methods=['get', 'post'])
+    def chat(self, request, pk=None):
+        order = self.get_object()
+        if request.method == 'GET':
+            messages = OrderChatMessage.objects.filter(order=order)
+            return Response(OrderChatMessageSerializer(messages, many=True).data)
+        serializer = OrderChatMessageSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(order=order, sender=request.user)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
 
 class RestaurantAnalyticsView(APIView):
     permission_classes = [IsAuthenticated]

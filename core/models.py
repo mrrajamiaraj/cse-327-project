@@ -69,7 +69,17 @@ class User(AbstractUser):
         verbose_name_plural = 'Users'
 
     def __str__(self):
-        return self.email
+        role_icons = {
+            'customer': '👤',
+            'restaurant': '🏪', 
+            'rider': '🚴',
+            'admin': '👑'
+        }
+        icon = role_icons.get(self.role, '👤')
+        name = f"{self.first_name} {self.last_name}".strip()
+        if name:
+            return f"{icon} {name} ({self.email}) - {self.role.title()}"
+        return f"{icon} {self.email} - {self.role.title()}"
 
 
 # === All Other Models (unchanged, just kept full) ===
@@ -260,6 +270,17 @@ class Order(models.Model):
         elif self.delivery_location:
             return f"Current Location - {self.delivery_location.get('address', 'Coordinates provided')}"
         return "No delivery address"
+    
+    def __str__(self):
+        participants = []
+        if self.user:
+            participants.append(f"👤{self.user.email}")
+        if self.restaurant and self.restaurant.owner:
+            participants.append(f"🏪{self.restaurant.owner.email}")
+        if self.rider:
+            participants.append(f"🚴{self.rider.email}")
+        
+        return f"Order #{self.id} - {self.restaurant.name} - {self.status} - Participants: {', '.join(participants)}"
 
 
 class Notification(models.Model):
@@ -311,8 +332,25 @@ class RiderLocation(models.Model):
 
 
 class OrderChatMessage(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE)
-    sender = models.ForeignKey(User, on_delete=models.CASCADE)
-    message = models.TextField()
-    image = models.ImageField(upload_to='chat_images/', null=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, help_text="Select the order this message belongs to")
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, help_text="Who is sending this message")
+    message = models.TextField(help_text="Message content")
+    image = models.ImageField(upload_to='chat_images/', null=True, blank=True, help_text="Optional image attachment")
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Order Chat Message"
+        verbose_name_plural = "Order Chat Messages"
+    
+    def __str__(self):
+        return f"Order #{self.order.id} - {self.sender.email}: {self.message[:50]}..."
+    
+    def get_participants(self):
+        """Get all participants in this order for easy reference"""
+        participants = [self.order.user]  # Customer
+        if self.order.restaurant.owner:
+            participants.append(self.order.restaurant.owner)  # Restaurant
+        if self.order.rider:
+            participants.append(self.order.rider)  # Rider
+        return participants

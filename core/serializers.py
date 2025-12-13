@@ -184,6 +184,10 @@ class CartSerializer(serializers.ModelSerializer):
         fields = ['id', 'items', 'subtotal']
 
 class OrderSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    restaurant = RestaurantSerializer(read_only=True)
+    address = AddressSerializer(read_only=True)
+    
     class Meta:
         model = Order
         fields = '__all__'
@@ -201,6 +205,8 @@ class FavoriteSerializer(serializers.ModelSerializer):
         fields = ['id', 'food', 'restaurant']
 
 class ReviewSerializer(serializers.ModelSerializer):
+    order = OrderSerializer(read_only=True)
+    
     class Meta:
         model = Review
         fields = '__all__'

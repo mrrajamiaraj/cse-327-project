@@ -1,13 +1,75 @@
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../services/api";
 
 const ORANGE = "#ff7a00";
 
 export default function AddNewItems() {
   const navigate = useNavigate();
 
-  const [itemName, setItemName] = useState("Mix Vegetables");
-  const [price, setPrice] = useState("110");
+  const [itemName, setItemName] = useState("");
+  const [price, setPrice] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
+  const [categories, setCategories] = useState([]);
+  const [isVeg, setIsVeg] = useState(true);
+  const [stockQuantity, setStockQuantity] = useState("50");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetchCategories();
+    
+    // Check if user is logged in and is a restaurant owner
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    if (!user.id || user.role !== 'restaurant') {
+      navigate("/login");
+    }
+  }, [navigate]);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/customer/food/');
+      // Get unique categories from existing foods
+      const uniqueCategories = [...new Set(response.data.results?.map(food => food.category?.name).filter(Boolean))];
+      setCategories(uniqueCategories);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!itemName.trim() || !price.trim() || !description.trim() || !category) {
+      setError("Please fill in all required fields");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const foodData = {
+        name: itemName.trim(),
+        price: parseFloat(price),
+        description: description.trim(),
+        category_name: category, // Backend will handle category creation/lookup
+        is_veg: isVeg,
+        stock_quantity: parseInt(stockQuantity) || 50,
+        is_available: true
+      };
+
+      await api.post('/restaurant/menu/items/', foodData);
+      
+      alert("Food item added successfully!");
+      navigate("/seller-dashboard");
+      
+    } catch (error) {
+      console.error("Error saving food item:", error);
+      setError(error.response?.data?.error || "Failed to save food item. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div
@@ -78,6 +140,11 @@ export default function AddNewItems() {
               onClick={() => {
                 setItemName("");
                 setPrice("");
+                setDescription("");
+                setCategory("");
+                setIsVeg(true);
+                setStockQuantity("50");
+                setError("");
               }}
               style={{
                 border: "none",
@@ -94,14 +161,47 @@ export default function AddNewItems() {
 
           {/* form */}
           <div style={{ padding: "0 6px" }}>
+            {error && (
+              <div style={{
+                background: "#ffe6e6",
+                color: "#d63031",
+                padding: "8px 12px",
+                borderRadius: "8px",
+                fontSize: "0.75rem",
+                marginBottom: "12px"
+              }}>
+                {error}
+              </div>
+            )}
+
             {/* item name */}
-            <Label>ITEM NAME</Label>
+            <Label>ITEM NAME *</Label>
             <input
               value={itemName}
               onChange={(e) => setItemName(e.target.value)}
-              placeholder="Item name"
+              placeholder="Enter food item name"
               style={inputStyle}
             />
+
+            {/* category */}
+            <Label>CATEGORY *</Label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Select category</option>
+              <option value="Biriyani">Biriyani</option>
+              <option value="Curry">Curry</option>
+              <option value="Kebab">Kebab</option>
+              <option value="Fish">Fish</option>
+              <option value="Chicken">Chicken</option>
+              <option value="Beef">Beef</option>
+              <option value="Vegetarian">Vegetarian</option>
+              <option value="Dessert">Dessert</option>
+              <option value="Snacks">Snacks</option>
+              <option value="Drinks">Drinks</option>
+            </select>
 
             {/* upload */}
             <Label>UPLOAD PHOTO/VIDEO</Label>
@@ -127,7 +227,7 @@ export default function AddNewItems() {
             </div>
 
             {/* price */}
-            <Label>PRICE</Label>
+            <Label>PRICE *</Label>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <div style={{ flex: 1, position: "relative" }}>
                 <span
@@ -143,17 +243,32 @@ export default function AddNewItems() {
                   ৳
                 </span>
                 <input
+                  type="number"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
+                  placeholder="0.00"
                   style={{ ...inputStyle, paddingLeft: 24 }}
                 />
               </div>
 
               <div style={{ display: "flex", gap: 14, fontSize: "0.7rem" }}>
-                <Check label="Pick up" checked />
-                <Check label="Delivery" />
+                <Check 
+                  label="Vegetarian" 
+                  checked={isVeg}
+                  onChange={(e) => setIsVeg(e.target.checked)}
+                />
               </div>
             </div>
+
+            {/* stock quantity */}
+            <Label>STOCK QUANTITY</Label>
+            <input
+              type="number"
+              value={stockQuantity}
+              onChange={(e) => setStockQuantity(e.target.value)}
+              placeholder="Available quantity"
+              style={inputStyle}
+            />
 
             {/* ingredients */}
             <div style={{ marginTop: 14 }}>
@@ -207,11 +322,11 @@ export default function AddNewItems() {
             </div>
 
             {/* details */}
-            <Label>DETAILS</Label>
+            <Label>DESCRIPTION *</Label>
             <textarea
-              defaultValue={
-                "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Bibendum in vel, mattis et amet dui."
-              }
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Describe your food item, ingredients, taste, etc."
               style={{
                 width: "100%",
                 minHeight: 84,
@@ -228,21 +343,22 @@ export default function AddNewItems() {
 
             {/* save button */}
             <button
-              onClick={() => alert("Saved (demo)")}
+              onClick={handleSave}
+              disabled={loading}
               style={{
                 marginTop: 18,
                 width: "100%",
                 height: 46,
                 borderRadius: 12,
                 border: "none",
-                background: ORANGE,
+                background: loading ? "#ccc" : ORANGE,
                 color: "#fff",
                 fontWeight: 800,
-                cursor: "pointer",
+                cursor: loading ? "not-allowed" : "pointer",
                 fontSize: "0.85rem",
               }}
             >
-              SAVE CHANGES
+              {loading ? "SAVING..." : "SAVE FOOD ITEM"}
             </button>
           </div>
         </div>
@@ -322,7 +438,7 @@ function AddBox() {
   );
 }
 
-function Check({ label, checked }) {
+function Check({ label, checked, onChange }) {
   return (
     <label
       style={{
@@ -334,7 +450,11 @@ function Check({ label, checked }) {
         whiteSpace: "nowrap",
       }}
     >
-      <input type="checkbox" defaultChecked={checked} />
+      <input 
+        type="checkbox" 
+        checked={checked} 
+        onChange={onChange}
+      />
       {label}
     </label>
   );

@@ -1,17 +1,181 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../services/api";
 
 const ORANGE = "#ff7a00";
 
-const messages = [
-  { id: 1, name: "Royal Parvej", text: "Sounds awesome!", time: "19:37", badge: 1, avatar: "/src/assets/user-3.png" },
-  { id: 2, name: "Salim Khan", text: "Ok, just hurry up little bit..", time: "19:37", badge: 2, avatar: "/src/assets/user-2.png" },
-  { id: 3, name: "Md. Moyhuddin", text: "Thanks dude.", time: "19:37", badge: 0, avatar: "/src/assets/user-1.png" },
-  { id: 4, name: "Pabel Bhuiyan", text: "How is going...?", time: "19:37", badge: 0, avatar: "/src/assets/user-4.png" },
-  { id: 5, name: "Tanbir Ahmed", text: "Thanks for the awesome food man...", time: "19:37", badge: 0, avatar: "/src/assets/user-1.png" },
-];
-
 export default function SellerMessages() {
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [messageCount, setMessageCount] = useState(0);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchMessages();
+  }, []);
+
+  const fetchMessages = async () => {
+    try {
+      setLoading(true);
+      
+      // Check if user is logged in and is a restaurant owner
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!user.id || user.role !== 'restaurant') {
+        navigate("/login");
+        return;
+      }
+
+      // Fetch restaurant orders to get real chat conversations
+      const ordersResponse = await api.get('/restaurant/orders/');
+      const orders = ordersResponse.data;
+      
+      // Get real chat messages for each order
+      const conversationsMap = {};
+      let totalUnread = 0;
+      
+      for (const order of orders) {
+        try {
+          // Fetch chat messages for this order
+          const chatResponse = await api.get(`/restaurant/orders/${order.id}/chat/`);
+          const chatMessages = chatResponse.data;
+          
+          if (chatMessages.length > 0) {
+            // Get the last message
+            const lastMessage = chatMessages[chatMessages.length - 1];
+            const customer = order.user;
+            const customerKey = customer.id;
+            
+            // Count unread messages (messages not from restaurant)
+            const unreadCount = chatMessages.filter(msg => 
+              msg.sender.role !== 'restaurant' && 
+              new Date(msg.created_at) > new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+            ).length;
+            
+            if (!conversationsMap[customerKey] || 
+                new Date(lastMessage.created_at) > new Date(conversationsMap[customerKey].lastMessageTime)) {
+              
+              conversationsMap[customerKey] = {
+                id: customer.id,
+                name: `${customer.first_name} ${customer.last_name}`.trim() || customer.email,
+                text: lastMessage.message.length > 50 ? 
+                      lastMessage.message.substring(0, 50) + "..." : 
+                      lastMessage.message,
+                time: formatTime(lastMessage.created_at),
+                badge: unreadCount,
+                avatar: customer.avatar_url || null,
+                orderId: order.id,
+                lastMessageTime: lastMessage.created_at,
+                senderRole: lastMessage.sender.role
+              };
+            }
+            
+            totalUnread += unreadCount;
+          }
+        } catch (chatError) {
+          console.log(`No chat messages for order ${order.id}`);
+          // If no chat messages, still show the order for potential messaging
+          const customer = order.user;
+          const customerKey = customer.id;
+          
+          if (!conversationsMap[customerKey]) {
+            conversationsMap[customerKey] = {
+              id: customer.id,
+              name: `${customer.first_name} ${customer.last_name}`.trim() || customer.email,
+              text: `Order #${order.id} - ${order.status}`,
+              time: formatTime(order.created_at),
+              badge: 0,
+              avatar: customer.avatar_url || null,
+              orderId: order.id,
+              lastMessageTime: order.created_at,
+              senderRole: 'system'
+            };
+          }
+        }
+      }
+      
+      const messagesList = Object.values(conversationsMap)
+        .sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime))
+        .slice(0, 10);
+      
+      setMessages(messagesList);
+      setMessageCount(totalUnread);
+      
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      setError("Failed to load messages");
+      
+      if (error.response?.status === 401) {
+        localStorage.clear();
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getLastMessageText = (order) => {
+    const statusMessages = {
+      'pending': 'New order placed!',
+      'preparing': 'Order is being prepared',
+      'ready_for_pickup': 'Order is ready for pickup',
+      'delivered': 'Thank you for the delicious food!',
+      'cancelled': 'Order was cancelled'
+    };
+    return statusMessages[order.status] || 'Order update';
+  };
+
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+  };
+
+  if (loading) {
+    return (
+      <div style={pageWrap}>
+        <div style={{ width: "100%", maxWidth: 360 }}>
+          <div style={pageTitle}>Messages</div>
+          <div style={{...phoneCard, display: "flex", alignItems: "center", justifyContent: "center"}}>
+            <div style={{ textAlign: "center", color: "#666" }}>
+              Loading messages...
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={pageWrap}>
+        <div style={{ width: "100%", maxWidth: 360 }}>
+          <div style={pageTitle}>Messages</div>
+          <div style={{...phoneCard, display: "flex", alignItems: "center", justifyContent: "center"}}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ color: "#ff4444", marginBottom: "10px" }}>{error}</div>
+              <button
+                onClick={fetchMessages}
+                style={{
+                  padding: "8px 16px",
+                  background: ORANGE,
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={pageWrap}>
@@ -39,7 +203,7 @@ export default function SellerMessages() {
             </button>
 
             <button style={{ ...tabBtn, color: ORANGE, fontWeight: 700 }} type="button">
-              Messages (3)
+              Messages ({messageCount})
             </button>
           </div>
 
@@ -49,30 +213,63 @@ export default function SellerMessages() {
 
           {/* list */}
           <div style={{ padding: "0 8px" }}>
-            {messages.map((m) => (
-              <div key={m.id} style={msgRow}>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <div style={avatarBox}>
-                    <img
-                      src={m.avatar}
-                      alt={m.name}
-                      style={avatarImg}
-                      onError={(e) => (e.currentTarget.style.display = "none")}
-                    />
-                  </div>
-
-                  <div>
-                    <div style={nameText}>{m.name}</div>
-                    <div style={msgText}>{m.text}</div>
-                  </div>
-                </div>
-
-                <div style={{ textAlign: "right" }}>
-                  <div style={timeRight}>{m.time}</div>
-                  {m.badge > 0 && <div style={badge}>{m.badge}</div>}
-                </div>
+            {messages.length === 0 ? (
+              <div style={{
+                textAlign: "center",
+                padding: "40px 20px",
+                color: "#999",
+                fontSize: "0.9rem"
+              }}>
+                No customer messages yet
               </div>
-            ))}
+            ) : (
+              messages.map((m) => (
+                <div 
+                  key={m.id} 
+                  style={{...msgRow, cursor: "pointer"}}
+                  onClick={() => navigate(`/chat/${m.orderId}`)}
+                >
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <div style={avatarBox}>
+                      {m.avatar ? (
+                        <img
+                          src={m.avatar}
+                          alt={m.name}
+                          style={avatarImg}
+                          onError={(e) => (e.currentTarget.style.display = "none")}
+                        />
+                      ) : (
+                        <div style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "#e0e0e0",
+                          color: "#666",
+                          fontSize: "1rem"
+                        }}>
+                          👤
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div style={nameText}>{m.name}</div>
+                      <div style={msgText}>
+                        {m.senderRole === 'restaurant' && "You: "}
+                        {m.text}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: "right" }}>
+                    <div style={timeRight}>{m.time}</div>
+                    {m.badge > 0 && <div style={badge}>{m.badge}</div>}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           <SellerBottomNav active="bell" />

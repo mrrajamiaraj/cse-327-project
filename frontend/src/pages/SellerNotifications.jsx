@@ -1,44 +1,157 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../services/api";
 
 const ORANGE = "#ff7a00";
 
-const notifications = [
-  {
-    id: 1,
-    name: "Tanbir Ahmed",
-    text: "Placed a new order",
-    time: "10 min ago",
-    avatar: "/src/assets/user-1.png",
-    thumb: "/src/assets/notif-1.png",
-  },
-  {
-    id: 2,
-    name: "Salim Khan",
-    text: "left a 5 star review",
-    time: "20 min ago",
-    avatar: "/src/assets/user-2.png",
-    thumb: "/src/assets/notif-2.png",
-  },
-  {
-    id: 3,
-    name: "Rayol Porvej",
-    text: "agreed to cancel",
-    time: "20 min ago",
-    avatar: "/src/assets/user-3.png",
-    thumb: "/src/assets/notif-3.png",
-  },
-  {
-    id: 4,
-    name: "Pabel Bhuiyan",
-    text: "Placed a new order",
-    time: "20 min ago",
-    avatar: "/src/assets/user-4.png",
-    thumb: "/src/assets/notif-4.png",
-  },
-];
-
 export default function SellerNotifications() {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      
+      // Check if user is logged in and is a restaurant owner
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!user.id || user.role !== 'restaurant') {
+        navigate("/login");
+        return;
+      }
+
+      // Fetch restaurant orders and reviews for notifications
+      const [ordersResponse, reviewsResponse] = await Promise.all([
+        api.get('/restaurant/orders/'),
+        api.get('/restaurant/reviews/')
+      ]);
+      
+      const orders = ordersResponse.data;
+      const reviews = reviewsResponse.data;
+      
+      const notificationsList = [];
+      
+      // Add order notifications
+      orders.slice(0, 5).forEach(order => {
+        const customer = order.user;
+        notificationsList.push({
+          id: `order-${order.id}`,
+          name: `${customer.first_name} ${customer.last_name}`.trim() || customer.email,
+          text: getOrderNotificationText(order.status),
+          time: getTimeAgo(order.created_at),
+          avatar: customer.avatar_url,
+          thumb: null, // Could add food image here
+          type: 'order',
+          orderId: order.id
+        });
+      });
+      
+      // Add review notifications
+      reviews.slice(0, 3).forEach(review => {
+        const customer = review.order.user;
+        notificationsList.push({
+          id: `review-${review.id}`,
+          name: `${customer.first_name} ${customer.last_name}`.trim() || customer.email,
+          text: `left a ${review.rating} star review`,
+          time: getTimeAgo(review.created_at),
+          avatar: customer.avatar_url,
+          thumb: null,
+          type: 'review',
+          reviewId: review.id
+        });
+      });
+      
+      // Sort by most recent
+      notificationsList.sort((a, b) => new Date(b.time) - new Date(a.time));
+      
+      setNotifications(notificationsList.slice(0, 10)); // Limit to 10 notifications
+      
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      setError("Failed to load notifications");
+      
+      if (error.response?.status === 401) {
+        localStorage.clear();
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getOrderNotificationText = (status) => {
+    const statusTexts = {
+      'pending': 'placed a new order',
+      'preparing': 'order is being prepared',
+      'ready_for_pickup': 'order is ready',
+      'delivered': 'order was delivered',
+      'cancelled': 'cancelled their order'
+    };
+    return statusTexts[status] || 'updated their order';
+  };
+
+  const getTimeAgo = (dateString) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+  };
+
+  if (loading) {
+    return (
+      <div style={pageWrap}>
+        <div style={{ width: "100%", maxWidth: 360 }}>
+          <div style={pageTitle}>Notification</div>
+          <div style={{...phoneCard, display: "flex", alignItems: "center", justifyContent: "center"}}>
+            <div style={{ textAlign: "center", color: "#666" }}>
+              Loading notifications...
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={pageWrap}>
+        <div style={{ width: "100%", maxWidth: 360 }}>
+          <div style={pageTitle}>Notification</div>
+          <div style={{...phoneCard, display: "flex", alignItems: "center", justifyContent: "center"}}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ color: "#ff4444", marginBottom: "10px" }}>{error}</div>
+              <button
+                onClick={fetchNotifications}
+                style={{
+                  padding: "8px 16px",
+                  background: ORANGE,
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={pageWrap}>
@@ -66,7 +179,7 @@ export default function SellerNotifications() {
               onClick={() => navigate("/seller-messages")}
               type="button"
             >
-              Messages (3)
+              Messages
             </button>
           </div>
 
@@ -76,36 +189,77 @@ export default function SellerNotifications() {
 
           {/* list */}
           <div style={{ padding: "0 8px" }}>
-            {notifications.map((n) => (
-              <div key={n.id} style={rowItem}>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <div style={avatarBox}>
-                    <img
-                      src={n.avatar}
-                      alt={n.name}
-                      style={avatarImg}
-                      onError={(e) => (e.currentTarget.style.display = "none")}
-                    />
-                  </div>
-
-                  <div>
-                    <div style={nameText}>
-                      {n.name} <span style={{ fontWeight: 500, color: "#888" }}>{n.text}</span>
-                    </div>
-                    <div style={timeText}>{n.time}</div>
-                  </div>
-                </div>
-
-                <div style={thumbBox}>
-                  <img
-                    src={n.thumb}
-                    alt="food"
-                    style={thumbImg}
-                    onError={(e) => (e.currentTarget.style.display = "none")}
-                  />
-                </div>
+            {notifications.length === 0 ? (
+              <div style={{
+                textAlign: "center",
+                padding: "40px 20px",
+                color: "#999",
+                fontSize: "0.9rem"
+              }}>
+                No notifications yet
               </div>
-            ))}
+            ) : (
+              notifications.map((n) => (
+                <div key={n.id} style={rowItem}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <div style={avatarBox}>
+                      {n.avatar ? (
+                        <img
+                          src={n.avatar}
+                          alt={n.name}
+                          style={avatarImg}
+                          onError={(e) => (e.currentTarget.style.display = "none")}
+                        />
+                      ) : (
+                        <div style={{
+                          width: "100%",
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: "#e0e0e0",
+                          color: "#666",
+                          fontSize: "1rem"
+                        }}>
+                          👤
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div style={nameText}>
+                        {n.name} <span style={{ fontWeight: 500, color: "#888" }}>{n.text}</span>
+                      </div>
+                      <div style={timeText}>{n.time}</div>
+                    </div>
+                  </div>
+
+                  <div style={thumbBox}>
+                    {n.thumb ? (
+                      <img
+                        src={n.thumb}
+                        alt="food"
+                        style={thumbImg}
+                        onError={(e) => (e.currentTarget.style.display = "none")}
+                      />
+                    ) : (
+                      <div style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "#f0f0f0",
+                        color: "#999",
+                        fontSize: "1.2rem"
+                      }}>
+                        {n.type === 'order' ? '🍽️' : '⭐'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {/* bottom nav */}

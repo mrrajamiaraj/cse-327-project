@@ -16,11 +16,13 @@ import AddCard from "./pages/AddCard.jsx";
 import PaymentSuccess from "./pages/PaymentSuccess.jsx";
 import SellerDashboard from "./pages/SellerDashboard.jsx";
 import RunningOrders from "./pages/RunningOrders.jsx";
-import MyFoodList from "./pages/MyFoodList.jsx";
 import AddNewItems from "./pages/AddNewItems.jsx";
+import MyFoodList from "./pages/MyFoodList.jsx";
 import SellerNotifications from "./pages/SellerNotifications.jsx";
 import SellerMessages from "./pages/SellerMessages.jsx";
 import SellerProfileMenu from "./pages/SellerProfileMenu.jsx";
+import ChatInterface from "./pages/ChatInterface.jsx";
+import MyOrders from "./pages/MyOrders.jsx";
 
 
 
@@ -143,6 +145,8 @@ export default function App() {
           <Route path="/seller-notifications" element={<SellerNotifications />} />
           <Route path="/seller-messages" element={<SellerMessages />} />
           <Route path="/seller-profile" element={<SellerProfileMenu />} />
+          <Route path="/chat/:orderId" element={<ChatInterface />} />
+          <Route path="/my-orders" element={<MyOrders />} />
 
 
           
@@ -162,7 +166,6 @@ export default function App() {
           <Route path="/search" element={<Search />} />
           <Route path="/burgers" element={<Burgers />} />
           <Route path="/food-details" element={<FoodDetails />} />
-          <Route path="/seller-dashboard" element={<SellerDashboard />} />
           
         </Routes>
       </main>
