@@ -69,7 +69,17 @@ class User(AbstractUser):
         verbose_name_plural = 'Users'
 
     def __str__(self):
-        return self.email
+        role_icons = {
+            'customer': '👤',
+            'restaurant': '🏪', 
+            'rider': '🚴',
+            'admin': '👑'
+        }
+        icon = role_icons.get(self.role, '👤')
+        name = f"{self.first_name} {self.last_name}".strip()
+        if name:
+            return f"{icon} {name} ({self.email}) - {self.role.title()}"
+        return f"{icon} {self.email} - {self.role.title()}"
 
 
 # === All Other Models (unchanged, just kept full) ===
@@ -260,6 +270,17 @@ class Order(models.Model):
         elif self.delivery_location:
             return f"Current Location - {self.delivery_location.get('address', 'Coordinates provided')}"
         return "No delivery address"
+    
+    def __str__(self):
+        participants = []
+        if self.user:
+            participants.append(f"👤{self.user.email}")
+        if self.restaurant and self.restaurant.owner:
+            participants.append(f"🏪{self.restaurant.owner.email}")
+        if self.rider:
+            participants.append(f"🚴{self.rider.email}")
+        
+        return f"Order #{self.id} - {self.restaurant.name} - {self.status} - Participants: {', '.join(participants)}"
 
 
 class Notification(models.Model):
@@ -310,9 +331,87 @@ class RiderLocation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
 
+class RestaurantEarnings(models.Model):
+    """Track restaurant earnings and balance"""
+    restaurant = models.OneToOneField(Restaurant, on_delete=models.CASCADE, related_name='earnings')
+    total_earnings = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Total lifetime earnings")
+    available_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Available balance for withdrawal")
+    pending_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Pending balance (not yet available)")
+    total_withdrawn = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Total amount withdrawn")
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=15.00, help_text="Platform commission percentage")
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.restaurant.name} - Balance: ৳{self.available_balance}"
+    
+    def add_earnings(self, order_total):
+        """Add earnings from a completed order"""
+        commission = (order_total * self.commission_rate) / 100
+        restaurant_share = order_total - commission
+        self.total_earnings += restaurant_share
+        self.available_balance += restaurant_share
+        self.save()
+        return restaurant_share
+    
+    class Meta:
+        verbose_name = "Restaurant Earnings"
+        verbose_name_plural = "Restaurant Earnings"
+
+
+class WithdrawalRequest(models.Model):
+    """Track withdrawal requests from restaurants"""
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('rejected', 'Rejected'),
+    )
+    
+    PAYMENT_METHODS = (
+        ('bank_transfer', 'Bank Transfer'),
+        ('mobile_banking', 'Mobile Banking (bKash/Nagad)'),
+        ('check', 'Check'),
+    )
+    
+    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='withdrawals')
+    amount = models.DecimalField(max_digits=10, decimal_places=2, help_text="Withdrawal amount")
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default='bank_transfer')
+    payment_details = models.JSONField(help_text="Bank account or mobile banking details")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    requested_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    processed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='processed_withdrawals')
+    notes = models.TextField(null=True, blank=True, help_text="Admin notes or rejection reason")
+    
+    def __str__(self):
+        return f"{self.restaurant.name} - ৳{self.amount} ({self.status})"
+    
+    class Meta:
+        ordering = ['-requested_at']
+        verbose_name = "Withdrawal Request"
+        verbose_name_plural = "Withdrawal Requests"
+
+
 class OrderChatMessage(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE)
-    sender = models.ForeignKey(User, on_delete=models.CASCADE)
-    message = models.TextField()
-    image = models.ImageField(upload_to='chat_images/', null=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, help_text="Select the order this message belongs to")
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, help_text="Who is sending this message")
+    message = models.TextField(help_text="Message content")
+    image = models.ImageField(upload_to='chat_images/', null=True, blank=True, help_text="Optional image attachment")
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Order Chat Message"
+        verbose_name_plural = "Order Chat Messages"
+    
+    def __str__(self):
+        return f"Order #{self.order.id} - {self.sender.email}: {self.message[:50]}..."
+    
+    def get_participants(self):
+        """Get all participants in this order for easy reference"""
+        participants = [self.order.user]  # Customer
+        if self.order.restaurant.owner:
+            participants.append(self.order.restaurant.owner)  # Restaurant
+        if self.order.rider:
+            participants.append(self.order.rider)  # Rider
+        return participants

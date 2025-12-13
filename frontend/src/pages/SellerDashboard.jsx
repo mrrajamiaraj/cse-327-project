@@ -47,13 +47,21 @@ export default function SellerDashboard() {
 
       // Fetch restaurant orders
       const ordersResponse = await api.get('/restaurant/orders/');
-      const orders = ordersResponse.data.results || [];
+      const orders = ordersResponse.data || [];
 
       // Fetch popular items (top food items by orders)
-      const foodResponse = await api.get('/customer/food/', {
-        params: { restaurant: restaurant.id, ordering: '-orders_count' }
-      });
-      const popularItems = foodResponse.data.results?.slice(0, 2) || [];
+      let popularItems = [];
+      try {
+        const foodResponse = await api.get('/customer/food/', {
+          params: { restaurant: restaurant.id, ordering: '-orders_count' }
+        });
+        const foodData = foodResponse.data;
+        const foods = foodData.results || foodData || [];
+        popularItems = foods.slice(0, 2);
+      } catch (foodError) {
+        console.log("Could not fetch food items:", foodError);
+        popularItems = [];
+      }
 
       // Calculate dashboard metrics
       const runningOrders = orders.filter(order => 
@@ -586,6 +594,8 @@ function StatCard({ value, label }) {
 }
 
 function BottomNav() {
+  const navigate = useNavigate();
+
   return (
     <div
       style={{
@@ -604,10 +614,16 @@ function BottomNav() {
       }}
     >
       <button style={navButtonStyle}>▦</button>
-      <button style={navButtonStyle}>≡</button>
+      <button 
+        style={navButtonStyle}
+        onClick={() => navigate("/running-orders")}
+      >
+        ≡
+      </button>
 
       {/* center plus – highlighted */}
       <button
+        onClick={() => navigate("/add-new-items")}
         style={{
           width: 40,
           height: 40,
@@ -621,13 +637,24 @@ function BottomNav() {
           fontSize: "1.3rem",
           marginTop: -22,
           boxShadow: "0 4px 12px rgba(255,122,0,0.55)",
+          cursor: "pointer",
         }}
       >
         +
       </button>
 
-      <button style={navButtonStyle}>🔔</button>
-      <button style={navButtonStyle}>👤</button>
+      <button 
+        style={navButtonStyle}
+        onClick={() => navigate("/seller-notifications")}
+      >
+        🔔
+      </button>
+      <button 
+        style={navButtonStyle}
+        onClick={() => navigate("/seller-profile")}
+      >
+        👤
+      </button>
     </div>
   );
 }

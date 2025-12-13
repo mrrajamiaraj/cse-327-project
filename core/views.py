@@ -122,7 +122,7 @@ class HomeView(viewsets.ViewSet):
         # Mock data for Figma home
         banners = [{'id': 1, 'image': 'banner.jpg'}]
         popular_foods = Food.objects.order_by('-id')[:5]
-        nearby_restaurants = Restaurant.objects.filter(is_approved=True)[:5]
+        nearby_restaurants = Restaurant.objects.filter(is_approved=True)[:10]  # Increased to show more restaurants
         categories = Category.objects.all()  # Return all categories
         return Response({
             'banners': banners,
@@ -530,7 +530,14 @@ class MenuItemViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         restaurant = get_object_or_404(Restaurant, owner=self.request.user)
-        serializer.save(restaurant=restaurant)
+        
+        # Handle category creation by name
+        category_name = self.request.data.get('category_name')
+        if category_name:
+            category, created = Category.objects.get_or_create(name=category_name)
+            serializer.save(restaurant=restaurant, category=category)
+        else:
+            serializer.save(restaurant=restaurant)
 
 class RestaurantOrderViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = OrderSerializer
@@ -560,6 +567,18 @@ class RestaurantOrderViewSet(viewsets.ReadOnlyModelViewSet):
         order.status = 'cancelled'
         order.save()
         return Response({'status': order.status})
+
+    @action(detail=True, methods=['get', 'post'])
+    def chat(self, request, pk=None):
+        order = self.get_object()
+        if request.method == 'GET':
+            messages = OrderChatMessage.objects.filter(order=order)
+            return Response(OrderChatMessageSerializer(messages, many=True).data)
+        serializer = OrderChatMessageSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(order=order, sender=request.user)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
 
 class RestaurantAnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -622,12 +641,99 @@ class RestaurantAnalyticsView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=500)
 
+
+class RestaurantEarningsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            restaurant = Restaurant.objects.get(owner=request.user)
+        except Restaurant.DoesNotExist:
+            return Response({'error': 'Restaurant not found'}, status=404)
+
+        # Get or create earnings record
+        earnings, created = RestaurantEarnings.objects.get_or_create(
+            restaurant=restaurant,
+            defaults={
+                'total_earnings': 0,
+                'available_balance': 0,
+                'pending_balance': 0,
+                'total_withdrawn': 0,
+                'commission_rate': 15.00
+            }
+        )
+
+        # If newly created, calculate earnings from existing orders
+        if created:
+            delivered_orders = Order.objects.filter(restaurant=restaurant, status='delivered')
+            for order in delivered_orders:
+                earnings.add_earnings(order.total)
+
+        return Response({
+            'total_earnings': float(earnings.total_earnings),
+            'available_balance': float(earnings.available_balance),
+            'pending_balance': float(earnings.pending_balance),
+            'total_withdrawn': float(earnings.total_withdrawn),
+            'commission_rate': float(earnings.commission_rate)
+        })
+
+
+class RestaurantWithdrawalsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            restaurant = Restaurant.objects.get(owner=request.user)
+        except Restaurant.DoesNotExist:
+            return Response({'error': 'Restaurant not found'}, status=404)
+
+        withdrawals = WithdrawalRequest.objects.filter(restaurant=restaurant)
+        serializer = WithdrawalRequestSerializer(withdrawals, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        try:
+            restaurant = Restaurant.objects.get(owner=request.user)
+        except Restaurant.DoesNotExist:
+            return Response({'error': 'Restaurant not found'}, status=404)
+
+        # Check if restaurant has sufficient balance
+        try:
+            earnings = RestaurantEarnings.objects.get(restaurant=restaurant)
+        except RestaurantEarnings.DoesNotExist:
+            return Response({'error': 'Earnings record not found'}, status=404)
+        
+        amount = float(request.data.get('amount', 0))
+        
+        if amount <= 0:
+            return Response({'error': 'Invalid amount'}, status=400)
+        
+        if amount > earnings.available_balance:
+            return Response({'error': 'Insufficient balance'}, status=400)
+
+        # Create withdrawal request
+        withdrawal = WithdrawalRequest.objects.create(
+            restaurant=restaurant,
+            amount=amount,
+            payment_method=request.data.get('payment_method', 'bank_transfer'),
+            payment_details=request.data.get('payment_details', {}),
+            status='pending'
+        )
+
+        # Deduct from available balance
+        earnings.available_balance -= amount
+        earnings.save()
+
+        serializer = WithdrawalRequestSerializer(withdrawal)
+        return Response(serializer.data, status=201)
+
+
 class RestaurantReviewViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ReviewSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Review.objects.filter(order__restaurant__owner=self.request.user)
+        return Review.objects.filter(order__restaurant__owner=self.request.user)ner=self.request.user)
 
 # Rider
 class RiderAvailabilityView(APIView):

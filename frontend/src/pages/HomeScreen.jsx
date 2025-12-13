@@ -286,7 +286,7 @@ export default function HomeScreen() {
                   <div
                     onClick={() => {
                       setMenuOpen(false);
-                      navigate('/orders');
+                      navigate('/my-orders');
                     }}
                     style={{
                       padding: "10px 8px",

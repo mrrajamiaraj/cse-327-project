@@ -45,6 +45,8 @@ urlpatterns = [
     path('api/v1/customer/checkout/', CheckoutView.as_view({'post': 'create'})),
     path('api/v1/restaurant/profile/', RestaurantProfileView.as_view()),
     path('api/v1/restaurant/analytics/', RestaurantAnalyticsView.as_view()),
+    path('api/v1/restaurant/earnings/', RestaurantEarningsView.as_view()),
+    path('api/v1/restaurant/withdrawals/', RestaurantWithdrawalsView.as_view()),
     path('api/v1/rider/availability/', RiderAvailabilityView.as_view()),
     path('api/v1/rider/location/', RiderLocationView.as_view()),
     path('api/v1/rider/profile/', RiderProfileView.as_view()),
