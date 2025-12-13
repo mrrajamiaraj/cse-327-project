@@ -79,6 +79,7 @@ class Restaurant(models.Model):
     name = models.CharField(max_length=100)
     banner = models.ImageField(upload_to='banners/', null=True)
     cuisine = models.CharField(max_length=255, help_text="Restaurant cuisine type or description (e.g., Italian, Fast Food, Asian Fusion)")
+    address = models.TextField(null=True, blank=True, help_text="Restaurant address")
     # rating is now calculated from reviews, not stored
     # delivery_time is now calculated based on distance
     is_approved = models.BooleanField(default=False)

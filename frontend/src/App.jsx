@@ -15,6 +15,8 @@ import Payment from "./pages/Payment.jsx";
 import AddCard from "./pages/AddCard.jsx";
 import PaymentSuccess from "./pages/PaymentSuccess.jsx";
 import SellerDashboard from "./pages/SellerDashboard.jsx";
+import RiderDashboard from "./pages/RiderDashboard.jsx";
+import AdminDashboard from "./pages/AdminDashboard.jsx";
 
 
 
@@ -143,6 +145,8 @@ export default function App() {
           <Route path="/burgers" element={<Burgers />} />
           <Route path="/food-details" element={<FoodDetails />} />
           <Route path="/seller-dashboard" element={<SellerDashboard />} />
+          <Route path="/rider-dashboard" element={<RiderDashboard />} />
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
           
         </Routes>
       </main>

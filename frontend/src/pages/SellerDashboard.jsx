@@ -1,27 +1,156 @@
 // src/pages/SellerDashboard.jsx
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../services/api";
 import popular1 from "../assets/seller-popular-1.png";
 import popular2 from "../assets/seller-popular-2.png";
 
 const ORANGE = "#ff7a00";
 
-const mockDashboardData = {
-  location: "Halal Lab office",
-  runningOrders: 20,
-  orderRequests: 5,
-  totalRevenue: 5000,
-  revenuePeriod: "Daily",
-  reviews: {
-    rating: 4.9,
-    count: 20,
-  },
-  popularItems: [
-    { id: 1, name: "Beef Curry", image: popular1 },
-    { id: 2, name: "Chicken Masala", image: popular2 },
-  ],
-};
-
 export default function SellerDashboard() {
-  const data = mockDashboardData;
+  const [data, setData] = useState({
+    location: "Loading...",
+    runningOrders: 0,
+    orderRequests: 0,
+    totalRevenue: 0,
+    revenuePeriod: "Daily",
+    reviews: { rating: 0, count: 0 },
+    popularItems: [],
+    restaurant: null
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Check if user is logged in and is a restaurant owner
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!user.id || user.role !== 'restaurant') {
+        navigate("/login");
+        return;
+      }
+
+      // Fetch restaurant profile
+      const restaurantResponse = await api.get('/restaurant/profile/');
+      const restaurant = restaurantResponse.data;
+
+      // Fetch restaurant analytics
+      const analyticsResponse = await api.get('/restaurant/analytics/');
+      const analytics = analyticsResponse.data;
+
+      // Fetch restaurant orders
+      const ordersResponse = await api.get('/restaurant/orders/');
+      const orders = ordersResponse.data.results || [];
+
+      // Fetch popular items (top food items by orders)
+      const foodResponse = await api.get('/customer/food/', {
+        params: { restaurant: restaurant.id, ordering: '-orders_count' }
+      });
+      const popularItems = foodResponse.data.results?.slice(0, 2) || [];
+
+      // Calculate dashboard metrics
+      const runningOrders = orders.filter(order => 
+        ['pending', 'preparing', 'ready_for_pickup'].includes(order.status)
+      ).length;
+
+      const orderRequests = orders.filter(order => 
+        order.status === 'pending'
+      ).length;
+
+      setData({
+        location: analytics.restaurant_address || restaurant.name,
+        runningOrders,
+        orderRequests,
+        totalRevenue: analytics.daily_revenue || 0,
+        revenuePeriod: "Daily",
+        reviews: {
+          rating: analytics.average_rating || 0,
+          count: analytics.total_reviews || 0
+        },
+        popularItems: popularItems.map((item, index) => ({
+          id: item.id,
+          name: item.name,
+          image: item.image || (index === 0 ? popular1 : popular2)
+        })),
+        restaurant
+      });
+
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      setError("Failed to load dashboard data");
+      
+      // If unauthorized, redirect to login
+      if (error.response?.status === 401) {
+        localStorage.clear();
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{
+        width: "100vw",
+        minHeight: "100vh",
+        background: "#f3f3f3",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif'
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "1.2rem", color: "#666", marginBottom: "10px" }}>
+            Loading Dashboard...
+          </div>
+          <div style={{ fontSize: "0.9rem", color: "#999" }}>
+            Fetching your restaurant data
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        width: "100vw",
+        minHeight: "100vh",
+        background: "#f3f3f3",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif'
+      }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "1.2rem", color: "#ff4444", marginBottom: "10px" }}>
+            {error}
+          </div>
+          <button
+            onClick={fetchDashboardData}
+            style={{
+              padding: "10px 20px",
+              background: ORANGE,
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer"
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
