@@ -8,6 +8,7 @@ from core.views import *
 from django.urls import path
 from core.views import RegisterView, LoginView
 from core.search_views import SearchView
+from rest_framework_simplejwt.views import TokenRefreshView
 
 router = DefaultRouter()
 router.register(r'customer/restaurants', RestaurantViewSet, basename='restaurant')
@@ -37,6 +38,7 @@ urlpatterns = [
     path('api/v1/', include(router.urls)),
     path('api/v1/auth/register/', RegisterView.as_view()),
     path('api/v1/auth/login/', LoginView.as_view()),
+    path('api/v1/auth/token/refresh/', TokenRefreshView.as_view()),
     path('api/v1/auth/profile/', ProfileView.as_view()),
     path('api/v1/customer/home/', HomeView.as_view({'get': 'list'})),
     path('api/v1/customer/search/', SearchView.as_view(), name='search'),

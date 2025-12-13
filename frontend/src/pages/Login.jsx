@@ -55,7 +55,29 @@ export default function Login() {
       localStorage.setItem("accessToken", response.data.access);
       localStorage.setItem("refreshToken", response.data.refresh);
       localStorage.setItem("user", JSON.stringify(response.data.user));
-      navigate("/location"); // Or /home if location is skipped
+      
+      // Role-based redirection
+      const userRole = response.data.user.role;
+      console.log("User role:", userRole);
+      
+      switch (userRole) {
+        case 'customer':
+          navigate("/location"); // Customer goes to location then home
+          break;
+        case 'restaurant':
+          navigate("/seller-dashboard"); // Restaurant owner goes to seller dashboard
+          break;
+        case 'rider':
+          alert("Rider dashboard is coming soon! Redirecting to home page.");
+          navigate("/home"); // Temporary redirect until rider dashboard is created
+          break;
+        case 'admin':
+          alert("Admin dashboard is coming soon! Redirecting to Django admin.");
+          window.location.href = "/admin"; // Redirect to Django admin for now
+          break;
+        default:
+          navigate("/home"); // Fallback to home
+      }
     } catch (err) {
       const msg = err.response?.data?.error || "Invalid credentials. Please try again.";
       setError(msg);

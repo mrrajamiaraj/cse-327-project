@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import authenticate
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.db import models
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import *
 from .serializers import *
@@ -121,7 +122,7 @@ class HomeView(viewsets.ViewSet):
         # Mock data for Figma home
         banners = [{'id': 1, 'image': 'banner.jpg'}]
         popular_foods = Food.objects.order_by('-id')[:5]
-        nearby_restaurants = Restaurant.objects.filter(is_approved=True)[:5]
+        nearby_restaurants = Restaurant.objects.filter(is_approved=True)[:10]  # Increased to show more restaurants
         categories = Category.objects.all()  # Return all categories
         return Response({
             'banners': banners,
@@ -564,14 +565,62 @@ class RestaurantAnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Mock for Figma dashboard
-        revenue = 1280
-        orders = 75
-        cancelled = 65
-        deliveries = 357
-        charts = {'pie': {'orders': 81, 'growth': 22, 'revenue': 62}, 'line': [100, 200, 300]}
-        reviews = Review.objects.filter(order__restaurant__owner=request.user)[:3]
-        return Response({'revenue': revenue, 'orders': orders, 'cancelled': cancelled, 'deliveries': deliveries, 'charts': charts, 'reviews': ReviewSerializer(reviews, many=True).data})
+        try:
+            # Get restaurant owned by current user
+            restaurant = Restaurant.objects.get(owner=request.user)
+            
+            # Get orders for this restaurant
+            orders = Order.objects.filter(restaurant=restaurant)
+            
+            # Calculate analytics
+            from datetime import date, timedelta
+            from decimal import Decimal
+            
+            today = date.today()
+            
+            # Daily revenue (today)
+            daily_orders = orders.filter(created_at__date=today)
+            daily_revenue = sum(order.total for order in daily_orders)
+            
+            # Total orders
+            total_orders = orders.count()
+            
+            # Running orders (pending, preparing, ready)
+            running_orders = orders.filter(
+                status__in=['pending', 'preparing', 'ready_for_pickup']
+            ).count()
+            
+            # Cancelled orders
+            cancelled_orders = orders.filter(status='cancelled').count()
+            
+            # Delivered orders
+            delivered_orders = orders.filter(status='delivered').count()
+            
+            # Reviews
+            reviews = Review.objects.filter(order__restaurant=restaurant)
+            total_reviews = reviews.count()
+            avg_rating = reviews.aggregate(avg_rating=models.Avg('rating'))['avg_rating'] or 0
+            
+            # Recent reviews
+            recent_reviews = reviews.order_by('-created_at')[:3]
+            
+            return Response({
+                'daily_revenue': float(daily_revenue),
+                'total_orders': total_orders,
+                'running_orders': running_orders,
+                'cancelled_orders': cancelled_orders,
+                'delivered_orders': delivered_orders,
+                'total_reviews': total_reviews,
+                'average_rating': round(float(avg_rating), 1),
+                'recent_reviews': ReviewSerializer(recent_reviews, many=True).data,
+                'restaurant_name': restaurant.name,
+                'restaurant_address': restaurant.address
+            })
+            
+        except Restaurant.DoesNotExist:
+            return Response({'error': 'Restaurant not found'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
 
 class RestaurantReviewViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ReviewSerializer
