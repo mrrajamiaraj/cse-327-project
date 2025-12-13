@@ -1,5 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import api from "../services/api";
+import { VisaLogo, MastercardLogo, AmexLogo, DiscoverLogo } from "../components/PaymentLogos";
 
 const ORANGE = "#ff7a00";
 
@@ -10,21 +12,138 @@ export default function AddCard() {
   // total from Payment (not strictly needed, but useful)
   const total = location.state?.total ?? 1160;
 
-  const [holder, setHolder] = useState("Md. Raja Mia Raj");
-  const [number, setNumber] = useState("2134");
+  const [holder, setHolder] = useState("");
+  const [number, setNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvc, setCvc] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [detectedCardType, setDetectedCardType] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const cardData = { holder, number, expiry, cvc };
-    console.log("New card added:", cardData, "Total:", total);
+    // Basic validation
+    if (!holder.trim() || !number.trim() || !expiry.trim() || !cvc.trim()) {
+      alert("Please fill in all fields");
+      return;
+    }
 
-    alert("Card added & payment done! (demo)");
+    // Basic card number validation (should be at least 13 digits)
+    const cleanNumber = number.replace(/\s/g, '');
+    if (cleanNumber.length < 13) {
+      alert("Please enter a valid card number");
+      return;
+    }
 
-    // after saving card you can change this to navigate("/payment") or home
-    navigate("/payment-success", { state: { total } });
+    // Basic expiry validation (MM/YY or MM/YYYY format)
+    if (!/^\d{2}\/\d{2,4}$/.test(expiry)) {
+      alert("Please enter expiry date in MM/YY or MM/YYYY format");
+      return;
+    }
+
+    // Convert MM/YY to MM/YYYY if needed
+    let formattedExpiry = expiry;
+    if (/^\d{2}\/\d{2}$/.test(expiry)) {
+      const [month, year] = expiry.split('/');
+      const currentYear = new Date().getFullYear();
+      const currentCentury = Math.floor(currentYear / 100) * 100;
+      const fullYear = parseInt(year) + currentCentury;
+      
+      // If the year is in the past, assume next century
+      if (fullYear < currentYear) {
+        formattedExpiry = `${month}/${fullYear + 100}`;
+      } else {
+        formattedExpiry = `${month}/${fullYear}`;
+      }
+    }
+
+    // Basic CVC validation (3-4 digits)
+    if (!/^\d{3,4}$/.test(cvc)) {
+      alert("Please enter a valid CVC (3-4 digits)");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Use the already detected card type
+      const cardType = detectedCardType || getCardType(cleanNumber);
+      
+      const paymentMethodData = {
+        type: "card",
+        details: {
+          card_holder: holder.trim(),
+          card_number: cleanNumber,
+          expiry_date: formattedExpiry,
+          cvc: cvc,
+          card_type: cardType,
+          last_four: cleanNumber.slice(-4)
+        }
+      };
+
+      console.log("Adding payment method:", paymentMethodData);
+
+      const response = await api.post('customer/payments/methods/', paymentMethodData);
+      console.log("Payment method added:", response.data);
+
+      alert("Card added successfully!");
+
+      // Navigate back to payment page to use the new card
+      navigate("/payment", { state: { total } });
+    } catch (error) {
+      console.error("Error adding card:", error);
+      console.error("Error details:", error.response?.data);
+      
+      // Show detailed error message
+      let errorMessage = "Failed to add card";
+      if (error.response?.data) {
+        if (typeof error.response.data === 'string') {
+          errorMessage += `: ${error.response.data}`;
+        } else if (error.response.data.error) {
+          errorMessage += `: ${error.response.data.error}`;
+        } else if (error.response.data.detail) {
+          errorMessage += `: ${error.response.data.detail}`;
+        } else {
+          errorMessage += `: ${JSON.stringify(error.response.data)}`;
+        }
+      } else {
+        errorMessage += `: ${error.message}`;
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getCardType = (number) => {
+    // Enhanced card type detection
+    const cleanNumber = number.replace(/\s/g, '');
+    
+    // Visa: starts with 4
+    if (/^4/.test(cleanNumber)) return 'Visa';
+    
+    // Mastercard: starts with 5 or 2221-2720
+    if (/^5[1-5]/.test(cleanNumber) || /^2[2-7]/.test(cleanNumber)) return 'Mastercard';
+    
+    // American Express: starts with 34 or 37
+    if (/^3[47]/.test(cleanNumber)) return 'American Express';
+    
+    // Discover: starts with 6
+    if (/^6/.test(cleanNumber)) return 'Discover';
+    
+    return '';
+  };
+
+  const handleNumberChange = (value) => {
+    // Format card number with spaces (XXXX XXXX XXXX XXXX)
+    const cleanValue = value.replace(/\s/g, '');
+    const formattedValue = cleanValue.replace(/(.{4})/g, '$1 ').trim();
+    
+    setNumber(formattedValue);
+    
+    // Detect card type in real-time
+    const cardType = getCardType(cleanValue);
+    setDetectedCardType(cardType);
   };
 
   return (
@@ -110,11 +229,45 @@ export default function AddCard() {
 
           {/* CARD NUMBER */}
           <FieldLabel label="CARD NUMBER" />
-          <InputBox
-            value={number}
-            onChange={(e) => setNumber(e.target.value)}
-            placeholder="2134 •••• ••••"
-          />
+          <div style={{ position: 'relative' }}>
+            <InputBox
+              value={number}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.replace(/\s/g, '').length <= 16) {
+                  handleNumberChange(value);
+                }
+              }}
+              placeholder="1234 5678 9012 3456"
+              maxLength={19} // 16 digits + 3 spaces
+            />
+            {detectedCardType && (
+              <div
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: '#fff',
+                  padding: '4px',
+                  borderRadius: 4,
+                  border: `1px solid ${ORANGE}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                {detectedCardType === 'Visa' && <VisaLogo width={24} height={16} />}
+                {detectedCardType === 'Mastercard' && <MastercardLogo width={24} height={16} />}
+                {detectedCardType === 'American Express' && <AmexLogo width={24} height={16} />}
+                {detectedCardType === 'Discover' && <DiscoverLogo width={24} height={16} />}
+                {!['Visa', 'Mastercard', 'American Express', 'Discover'].includes(detectedCardType) && (
+                  <span style={{ fontSize: '0.7rem', color: ORANGE, fontWeight: 600 }}>
+                    {detectedCardType}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* EXPIRE DATE + CVC */}
           <div
@@ -129,16 +282,37 @@ export default function AddCard() {
               <FieldLabel label="EXPIRE DATE" />
               <InputBox
                 value={expiry}
-                onChange={(e) => setExpiry(e.target.value)}
-                placeholder="mm/yyyy"
+                onChange={(e) => {
+                  // Format expiry date as MM/YY or MM/YYYY
+                  let value = e.target.value.replace(/\D/g, '');
+                  if (value.length >= 2) {
+                    if (value.length <= 4) {
+                      // MM/YY format
+                      value = value.substring(0, 2) + '/' + value.substring(2, 4);
+                    } else {
+                      // MM/YYYY format
+                      value = value.substring(0, 2) + '/' + value.substring(2, 6);
+                    }
+                  }
+                  setExpiry(value);
+                }}
+                placeholder="MM/YY or MM/YYYY"
+                maxLength={7}
               />
             </div>
             <div style={{ flex: 1 }}>
               <FieldLabel label="CVC" />
               <InputBox
                 value={cvc}
-                onChange={(e) => setCvc(e.target.value)}
-                placeholder="•••"
+                onChange={(e) => {
+                  // Only allow digits, max 4 characters
+                  const value = e.target.value.replace(/\D/g, '');
+                  if (value.length <= 4) {
+                    setCvc(value);
+                  }
+                }}
+                placeholder="123"
+                maxLength={4}
               />
             </div>
           </div>
@@ -146,20 +320,21 @@ export default function AddCard() {
           {/* ADD & MAKE PAYMENT button */}
           <button
             type="submit"
+            disabled={loading}
             style={{
               marginTop: 8,
               width: "100%",
               padding: "11px 0",
               borderRadius: 10,
               border: "none",
-              background: ORANGE,
+              background: loading ? "#ccc" : ORANGE,
               color: "#fff",
               fontWeight: 700,
-              cursor: "pointer",
+              cursor: loading ? "not-allowed" : "pointer",
               fontSize: "0.9rem",
             }}
           >
-            ADD & MAKE PAYMENT
+            {loading ? "ADDING CARD..." : "ADD CARD"}
           </button>
         </form>
       </div>

@@ -1,5 +1,5 @@
 // src/pages/SellerDashboard.jsx
-import popular1 from "../assets/seller-popular-1.png"; // change path/name if needed
+import popular1 from "../assets/seller-popular-1.png";
 import popular2 from "../assets/seller-popular-2.png";
 
 const ORANGE = "#ff7a00";
@@ -15,16 +15,8 @@ const mockDashboardData = {
     count: 20,
   },
   popularItems: [
-    {
-      id: 1,
-      name: "Beef Curry",
-      image: popular1,
-    },
-    {
-      id: 2,
-      name: "Chicken Masala",
-      image: popular2,
-    },
+    { id: 1, name: "Beef Curry", image: popular1 },
+    { id: 2, name: "Chicken Masala", image: popular2 },
   ],
 };
 
@@ -36,58 +28,55 @@ export default function SellerDashboard() {
       style={{
         width: "100vw",
         minHeight: "100vh",
-        background: "#f4f4f4",
+        background: "#f3f3f3",
         display: "flex",
         justifyContent: "center",
-        padding: "24px 0",
+        padding: "18px 0",
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
       }}
     >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 420,
-          padding: "0 16px 16px",
-        }}
-      >
+      <div style={{ width: "100%", maxWidth: 360 }}>
         {/* grey page title */}
         <div
           style={{
-            fontSize: "1rem",
+            fontSize: "0.8rem",
             fontWeight: 500,
-            color: "#b3b3b3",
-            marginBottom: 10,
+            color: "#c0c0c0",
+            marginBottom: 8,
+            paddingLeft: 6,
           }}
         >
           Seller Dashboard Home
         </div>
 
-        {/* main rounded card */}
+        {/* main white phone card */}
         <div
           style={{
-            borderRadius: 32,
-            background: "#ffffff",
-            boxShadow: "0 18px 40px rgba(0,0,0,0.08)",
-            padding: "16px 14px 72px", // extra bottom for nav bar
             position: "relative",
+            borderRadius: 28,
+            background: "#ffffff",
+            boxShadow: "0 18px 40px rgba(0,0,0,0.12)",
+            padding: "14px 12px 70px",
           }}
         >
-          {/* top: location row */}
+          {/* top row: menu, location, avatar */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: 16,
+              marginBottom: 18,
             }}
           >
-            {/* left menu icon */}
+            {/* left hamburger in circle */}
             <button
               style={{
                 width: 30,
                 height: 30,
                 borderRadius: "50%",
                 border: "none",
-                background: "#f2f3f7",
+                background: "#f4f5f8",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -98,14 +87,14 @@ export default function SellerDashboard() {
               ☰
             </button>
 
-            {/* location text */}
+            {/* location center */}
             <div style={{ textAlign: "center" }}>
               <div
                 style={{
-                  fontSize: "0.7rem",
-                  letterSpacing: 0.5,
+                  fontSize: "0.65rem",
+                  letterSpacing: 0.6,
                   color: ORANGE,
-                  fontWeight: 600,
+                  fontWeight: 700,
                 }}
               >
                 LOCATION
@@ -121,18 +110,18 @@ export default function SellerDashboard() {
               </div>
             </div>
 
-            {/* right profile circle */}
+            {/* right avatar circle */}
             <div
               style={{
                 width: 30,
                 height: 30,
                 borderRadius: "50%",
-                background: "#e0e3ee",
+                background: "#d5d9e6",
               }}
             />
           </div>
 
-          {/* stats row: running orders & order request */}
+          {/* KPI cards row */}
           <div
             style={{
               display: "flex",
@@ -140,26 +129,20 @@ export default function SellerDashboard() {
               marginBottom: 14,
             }}
           >
-            <StatCard
-              value={data.runningOrders}
-              label="RUNNING ORDERS"
-            />
-            <StatCard
-              value={data.orderRequests}
-              label="ORDER REQUEST"
-            />
+            <StatCard value={data.runningOrders} label="RUNNING ORDERS" />
+            <StatCard value={data.orderRequests} label="ORDER REQUEST" />
           </div>
 
-          {/* revenue card */}
+          {/* Revenue + chart card */}
           <div
             style={{
               background: "#f7f8fc",
               borderRadius: 18,
-              padding: "10px 10px 12px",
+              padding: "12px 10px 12px",
               marginBottom: 14,
             }}
           >
-            {/* header row */}
+            {/* header */}
             <div
               style={{
                 display: "flex",
@@ -172,7 +155,7 @@ export default function SellerDashboard() {
                 <div
                   style={{
                     fontSize: "0.7rem",
-                    color: "#9a9a9a",
+                    color: "#a0a0aa",
                   }}
                 >
                   Total Revenue
@@ -193,7 +176,6 @@ export default function SellerDashboard() {
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  fontSize: "0.7rem",
                 }}
               >
                 <select
@@ -201,10 +183,10 @@ export default function SellerDashboard() {
                   readOnly
                   style={{
                     borderRadius: 12,
-                    border: "1px solid #e2e4f0",
+                    border: "1px solid #dde0f0",
                     padding: "3px 10px",
                     fontSize: "0.7rem",
-                    background: "#fff",
+                    background: "#ffffff",
                     outline: "none",
                     color: "#555",
                   }}
@@ -215,6 +197,7 @@ export default function SellerDashboard() {
                   style={{
                     border: "none",
                     background: "transparent",
+                    fontSize: "0.7rem",
                     color: ORANGE,
                     cursor: "pointer",
                   }}
@@ -224,24 +207,18 @@ export default function SellerDashboard() {
               </div>
             </div>
 
-            {/* simple fake chart to match UI */}
-            <div
-              style={{
-                marginTop: 4,
-                paddingTop: 8,
-              }}
-            >
+            {/* chart */}
+            <div style={{ marginTop: 4 }}>
               <div
                 style={{
                   position: "relative",
                   height: 80,
                   borderRadius: 16,
                   background:
-                    "linear-gradient(180deg,#ffe6d1 0%, #ffffff 70%)",
+                    "linear-gradient(180deg,#ffe5d0 0%, #ffffff 70%)",
                   overflow: "hidden",
                 }}
               >
-                {/* line path using simple SVG */}
                 <svg
                   width="100%"
                   height="100%"
@@ -249,31 +226,31 @@ export default function SellerDashboard() {
                   preserveAspectRatio="none"
                 >
                   <path
-                    d="M0 30 C15 25 25 20 35 24 C45 28 55 18 65 22 C75 26 85 16 100 20"
+                    d="M0 30 C12 25 22 18 32 22 C42 26 52 16 62 20 C72 24 82 15 100 19"
                     fill="none"
                     stroke={ORANGE}
                     strokeWidth="2"
                   />
                 </svg>
 
-                {/* revenue dot + label */}
+                {/* point & label */}
                 <div
                   style={{
                     position: "absolute",
-                    left: "40%",
-                    top: "32%",
+                    left: "45%",
+                    top: "33%",
                     transform: "translate(-50%, -50%)",
-                    width: 10,
-                    height: 10,
+                    width: 9,
+                    height: 9,
                     borderRadius: "50%",
                     background: ORANGE,
-                    boxShadow: "0 0 0 4px rgba(255,122,0,0.25)",
+                    boxShadow: "0 0 0 3px rgba(255,122,0,0.3)",
                   }}
                 />
                 <div
                   style={{
                     position: "absolute",
-                    left: "40%",
+                    left: "45%",
                     top: "12%",
                     transform: "translateX(-50%)",
                     padding: "2px 8px",
@@ -311,12 +288,12 @@ export default function SellerDashboard() {
             </div>
           </div>
 
-          {/* reviews card */}
+          {/* Reviews card */}
           <div
             style={{
-              background: "#f9fafc",
+              background: "#fafbff",
               borderRadius: 18,
-              padding: "10px 10px 10px",
+              padding: "10px 10px",
               marginBottom: 14,
               display: "flex",
               justifyContent: "space-between",
@@ -328,6 +305,7 @@ export default function SellerDashboard() {
                 style={{
                   fontSize: "0.8rem",
                   marginBottom: 6,
+                  color: "#444",
                 }}
               >
                 Reviews
@@ -340,11 +318,19 @@ export default function SellerDashboard() {
                   fontSize: "0.8rem",
                 }}
               >
-                <span style={{ color: "#ffb400", fontSize: "1rem" }}>★</span>
+                <span
+                  style={{
+                    color: "#ffb400",
+                    fontSize: "1rem",
+                    marginTop: -2,
+                  }}
+                >
+                  ★
+                </span>
                 <span style={{ fontWeight: 600 }}>{data.reviews.rating}</span>
                 <span
                   style={{
-                    fontSize: "0.7rem",
+                    fontSize: "0.68rem",
                     color: "#9a9a9a",
                   }}
                 >
@@ -352,7 +338,6 @@ export default function SellerDashboard() {
                 </span>
               </div>
             </div>
-
             <button
               style={{
                 border: "none",
@@ -366,7 +351,7 @@ export default function SellerDashboard() {
             </button>
           </div>
 
-          {/* popular items */}
+          {/* Popular items */}
           <div>
             <div
               style={{
@@ -376,11 +361,7 @@ export default function SellerDashboard() {
                 marginBottom: 8,
               }}
             >
-              <div
-                style={{
-                  fontSize: "0.8rem",
-                }}
-              >
+              <div style={{ fontSize: "0.8rem", color: "#444" }}>
                 Popular Items This Weeks
               </div>
               <button
@@ -396,12 +377,7 @@ export default function SellerDashboard() {
               </button>
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                gap: 10,
-              }}
-            >
+            <div style={{ display: "flex", gap: 10 }}>
               {data.popularItems.map((item) => (
                 <div
                   key={item.id}
@@ -413,21 +389,18 @@ export default function SellerDashboard() {
                     boxShadow: "0 8px 16px rgba(0,0,0,0.05)",
                   }}
                 >
-                  <div
-                    style={{
-                      height: 90,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
-                    />
+                  <div style={{ height: 90, overflow: "hidden" }}>
+                    {item.image && (
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    )}
                   </div>
                   <div
                     style={{
@@ -443,7 +416,7 @@ export default function SellerDashboard() {
             </div>
           </div>
 
-          {/* bottom nav bar */}
+          {/* bottom nav */}
           <BottomNav />
         </div>
       </div>
@@ -466,6 +439,7 @@ function StatCard({ value, label }) {
           fontSize: "1.1rem",
           fontWeight: 700,
           marginBottom: 2,
+          color: "#202121",
         }}
       >
         {value.toString().padStart(2, "0")}
@@ -487,13 +461,13 @@ function BottomNav() {
     <div
       style={{
         position: "absolute",
-        left: 16,
-        right: 16,
-        bottom: 8,
-        height: 54,
-        borderRadius: 26,
+        left: 18,
+        right: 18,
+        bottom: 10,
+        height: 50,
+        borderRadius: 24,
         background: "#ffffff",
-        boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+        boxShadow: "0 10px 30px rgba(0,0,0,0.14)",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-around",
@@ -503,7 +477,7 @@ function BottomNav() {
       <button style={navButtonStyle}>▦</button>
       <button style={navButtonStyle}>≡</button>
 
-      {/* center plus – active */}
+      {/* center plus – highlighted */}
       <button
         style={{
           width: 40,
@@ -516,8 +490,8 @@ function BottomNav() {
           justifyContent: "center",
           color: ORANGE,
           fontSize: "1.3rem",
-          marginTop: -20,
-          boxShadow: "0 4px 12px rgba(255,122,0,0.4)",
+          marginTop: -22,
+          boxShadow: "0 4px 12px rgba(255,122,0,0.55)",
         }}
       >
         +
@@ -534,4 +508,5 @@ const navButtonStyle = {
   background: "transparent",
   cursor: "pointer",
   fontSize: "1.1rem",
+  color: "#9a9a9a",
 };
