@@ -47,13 +47,21 @@ export default function SellerDashboard() {
 
       // Fetch restaurant orders
       const ordersResponse = await api.get('/restaurant/orders/');
-      const orders = ordersResponse.data.results || [];
+      const orders = ordersResponse.data || [];
 
       // Fetch popular items (top food items by orders)
-      const foodResponse = await api.get('/customer/food/', {
-        params: { restaurant: restaurant.id, ordering: '-orders_count' }
-      });
-      const popularItems = foodResponse.data.results?.slice(0, 2) || [];
+      let popularItems = [];
+      try {
+        const foodResponse = await api.get('/customer/food/', {
+          params: { restaurant: restaurant.id, ordering: '-orders_count' }
+        });
+        const foodData = foodResponse.data;
+        const foods = foodData.results || foodData || [];
+        popularItems = foods.slice(0, 2);
+      } catch (foodError) {
+        console.log("Could not fetch food items:", foodError);
+        popularItems = [];
+      }
 
       // Calculate dashboard metrics
       const runningOrders = orders.filter(order => 

@@ -121,6 +121,81 @@ class AIChatMessageAdmin(admin.ModelAdmin):
 class RiderLocationAdmin(admin.ModelAdmin):
     list_display = ('rider', 'lat', 'lng', 'updated_at')
 
+@admin.register(RestaurantEarnings)
+class RestaurantEarningsAdmin(admin.ModelAdmin):
+    list_display = ('restaurant', 'available_balance', 'total_earnings', 'total_withdrawn', 'commission_rate', 'updated_at')
+    list_filter = ('commission_rate', 'updated_at')
+    search_fields = ('restaurant__name', 'restaurant__owner__email')
+    readonly_fields = ('updated_at',)
+    
+    fieldsets = (
+        ('Restaurant', {
+            'fields': ('restaurant',)
+        }),
+        ('Earnings', {
+            'fields': ('total_earnings', 'available_balance', 'pending_balance')
+        }),
+        ('Withdrawals', {
+            'fields': ('total_withdrawn',)
+        }),
+        ('Settings', {
+            'fields': ('commission_rate',)
+        }),
+        ('Timestamps', {
+            'fields': ('updated_at',)
+        }),
+    )
+
+
+@admin.register(WithdrawalRequest)
+class WithdrawalRequestAdmin(admin.ModelAdmin):
+    list_display = ('restaurant', 'amount', 'payment_method', 'status', 'requested_at', 'processed_at')
+    list_filter = ('status', 'payment_method', 'requested_at')
+    search_fields = ('restaurant__name', 'restaurant__owner__email')
+    readonly_fields = ('requested_at',)
+    
+    fieldsets = (
+        ('Request Details', {
+            'fields': ('restaurant', 'amount', 'payment_method', 'payment_details')
+        }),
+        ('Status', {
+            'fields': ('status', 'notes')
+        }),
+        ('Processing', {
+            'fields': ('processed_by', 'processed_at')
+        }),
+        ('Timestamps', {
+            'fields': ('requested_at',)
+        }),
+    )
+    
+    actions = ['approve_withdrawals', 'reject_withdrawals']
+    
+    def approve_withdrawals(self, request, queryset):
+        """Approve selected withdrawal requests"""
+        from django.utils import timezone
+        
+        updated = queryset.filter(status='pending').update(
+            status='completed',
+            processed_at=timezone.now(),
+            processed_by=request.user
+        )
+        self.message_user(request, f'{updated} withdrawal requests approved.')
+    approve_withdrawals.short_description = "Approve selected withdrawal requests"
+    
+    def reject_withdrawals(self, request, queryset):
+        """Reject selected withdrawal requests"""
+        from django.utils import timezone
+        
+        updated = queryset.filter(status='pending').update(
+            status='rejected',
+            processed_at=timezone.now(),
+            processed_by=request.user
+        )
+        self.message_user(request, f'{updated} withdrawal requests rejected.')
+    reject_withdrawals.short_description = "Reject selected withdrawal requests"
+
+
 @admin.register(OrderChatMessage)
 class OrderChatMessageAdmin(admin.ModelAdmin):
     list_display = ('get_order_info', 'get_sender_info', 'get_message_preview', 'created_at')

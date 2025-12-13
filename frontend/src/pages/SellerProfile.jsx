@@ -1,11 +1,92 @@
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "../services/api";
 
 const ORANGE = "#ff7a00";
 
 export default function SellerProfile() {
   const navigate = useNavigate();
   const [showWithdrawSuccess, setShowWithdrawSuccess] = useState(false);
+  const [profileData, setProfileData] = useState({
+    balance: 0,
+    totalOrders: 0,
+    restaurantName: "",
+    ownerName: ""
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProfileData();
+  }, []);
+
+  const fetchProfileData = async () => {
+    try {
+      setLoading(true);
+      
+      // Check if user is logged in and is a restaurant owner
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!user.id || user.role !== 'restaurant') {
+        navigate("/login");
+        return;
+      }
+
+      // Fetch restaurant analytics and earnings
+      const [analyticsResponse, earningsResponse, profileResponse] = await Promise.all([
+        api.get('/restaurant/analytics/'),
+        api.get('/restaurant/earnings/'),
+        api.get('/restaurant/profile/')
+      ]);
+      
+      const analytics = analyticsResponse.data;
+      const earnings = earningsResponse.data;
+      const restaurant = profileResponse.data;
+      
+      setProfileData({
+        balance: earnings.available_balance,
+        totalOrders: analytics.total_orders,
+        restaurantName: restaurant.name,
+        ownerName: `${user.first_name} ${user.last_name}`.trim() || user.email
+      });
+      
+    } catch (error) {
+      console.error("Error fetching profile data:", error);
+      
+      if (error.response?.status === 401) {
+        localStorage.clear();
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWithdraw = () => {
+    // For now, just show success popup
+    // In a real app, this would open a withdrawal form
+    setShowWithdrawSuccess(true);
+  };
+
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to log out?")) {
+      localStorage.clear();
+      navigate("/login");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={pageWrap}>
+        <div style={{ width: "100%", maxWidth: 380 }}>
+          <div style={pageTitle}>Menu</div>
+          <div style={{...phoneCard, display: "flex", alignItems: "center", justifyContent: "center"}}>
+            <div style={{ textAlign: "center", color: "#666" }}>
+              Loading profile...
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={pageWrap}>
@@ -21,18 +102,18 @@ export default function SellerProfile() {
 
             <div style={{ textAlign: "center" }}>
               <div style={{ fontWeight: 700, color: "#fff", fontSize: "0.9rem" }}>
-                My Profile
+                {profileData.restaurantName || "My Profile"}
               </div>
               <div style={{ color: "rgba(255,255,255,0.85)", fontSize: "0.7rem", marginTop: 6 }}>
                 Available Balance
               </div>
               <div style={{ color: "#fff", fontSize: "1.5rem", fontWeight: 800, marginTop: 6 }}>
-                ৳50000.00
+                ৳{profileData.balance.toFixed(2)}
               </div>
 
               <button
                 style={withdrawBtn}
-                onClick={() => setShowWithdrawSuccess(true)}
+                onClick={handleWithdraw}
               >
                 Withdraw
               </button>
@@ -45,10 +126,10 @@ export default function SellerProfile() {
             {/* Settings replaced by Total Revenue */}
             <MenuItem icon="📈" label="Total Revenue" onClick={() => navigate("/total-revenue")} />
             <MenuItem icon="🧾" label="Withdrawal History" onClick={() => navigate("/withdraw-history")} />
-            <MenuItem icon="📦" label="Number of Orders" right="29K" onClick={() => navigate("/order-history")} />
+            <MenuItem icon="📦" label="Number of Orders" right={profileData.totalOrders.toString()} onClick={() => navigate("/order-history")} />
             <MenuItem icon="⭐" label="User Reviews" onClick={() => navigate("/seller-reviews")} />
             <MenuItem icon="🗺️" label="Customer Map" onClick={() => navigate("/customer-map")} />
-            <MenuItem icon="🚪" label="Log Out" onClick={() => navigate("/login")} />
+            <MenuItem icon="🚪" label="Log Out" onClick={handleLogout} />
           </div>
 
           {/* Bottom nav (same style) */}

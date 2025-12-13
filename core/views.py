@@ -641,12 +641,99 @@ class RestaurantAnalyticsView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=500)
 
+
+class RestaurantEarningsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            restaurant = Restaurant.objects.get(owner=request.user)
+        except Restaurant.DoesNotExist:
+            return Response({'error': 'Restaurant not found'}, status=404)
+
+        # Get or create earnings record
+        earnings, created = RestaurantEarnings.objects.get_or_create(
+            restaurant=restaurant,
+            defaults={
+                'total_earnings': 0,
+                'available_balance': 0,
+                'pending_balance': 0,
+                'total_withdrawn': 0,
+                'commission_rate': 15.00
+            }
+        )
+
+        # If newly created, calculate earnings from existing orders
+        if created:
+            delivered_orders = Order.objects.filter(restaurant=restaurant, status='delivered')
+            for order in delivered_orders:
+                earnings.add_earnings(order.total)
+
+        return Response({
+            'total_earnings': float(earnings.total_earnings),
+            'available_balance': float(earnings.available_balance),
+            'pending_balance': float(earnings.pending_balance),
+            'total_withdrawn': float(earnings.total_withdrawn),
+            'commission_rate': float(earnings.commission_rate)
+        })
+
+
+class RestaurantWithdrawalsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            restaurant = Restaurant.objects.get(owner=request.user)
+        except Restaurant.DoesNotExist:
+            return Response({'error': 'Restaurant not found'}, status=404)
+
+        withdrawals = WithdrawalRequest.objects.filter(restaurant=restaurant)
+        serializer = WithdrawalRequestSerializer(withdrawals, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        try:
+            restaurant = Restaurant.objects.get(owner=request.user)
+        except Restaurant.DoesNotExist:
+            return Response({'error': 'Restaurant not found'}, status=404)
+
+        # Check if restaurant has sufficient balance
+        try:
+            earnings = RestaurantEarnings.objects.get(restaurant=restaurant)
+        except RestaurantEarnings.DoesNotExist:
+            return Response({'error': 'Earnings record not found'}, status=404)
+        
+        amount = float(request.data.get('amount', 0))
+        
+        if amount <= 0:
+            return Response({'error': 'Invalid amount'}, status=400)
+        
+        if amount > earnings.available_balance:
+            return Response({'error': 'Insufficient balance'}, status=400)
+
+        # Create withdrawal request
+        withdrawal = WithdrawalRequest.objects.create(
+            restaurant=restaurant,
+            amount=amount,
+            payment_method=request.data.get('payment_method', 'bank_transfer'),
+            payment_details=request.data.get('payment_details', {}),
+            status='pending'
+        )
+
+        # Deduct from available balance
+        earnings.available_balance -= amount
+        earnings.save()
+
+        serializer = WithdrawalRequestSerializer(withdrawal)
+        return Response(serializer.data, status=201)
+
+
 class RestaurantReviewViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ReviewSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Review.objects.filter(order__restaurant__owner=self.request.user)
+        return Review.objects.filter(order__restaurant__owner=self.request.user)ner=self.request.user)
 
 # Rider
 class RiderAvailabilityView(APIView):

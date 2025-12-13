@@ -237,3 +237,17 @@ class OrderChatMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderChatMessage
         fields = ['id', 'sender', 'message', 'image', 'created_at']
+
+
+class RestaurantEarningsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RestaurantEarnings
+        fields = ['total_earnings', 'available_balance', 'pending_balance', 'total_withdrawn', 'commission_rate', 'updated_at']
+
+
+class WithdrawalRequestSerializer(serializers.ModelSerializer):
+    restaurant_name = serializers.CharField(source='restaurant.name', read_only=True)
+    
+    class Meta:
+        model = WithdrawalRequest
+        fields = ['id', 'restaurant_name', 'amount', 'payment_method', 'payment_details', 'status', 'requested_at', 'processed_at', 'notes']
