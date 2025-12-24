@@ -24,7 +24,7 @@ export default function MyOrders() {
       }
 
       // Fetch customer orders
-      const response = await api.get('/orders/');
+      const response = await api.get('/customer/orders/');
       setOrders(response.data.results || response.data);
       
     } catch (error) {

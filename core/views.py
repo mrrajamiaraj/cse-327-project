@@ -592,7 +592,19 @@ class RestaurantOrderViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Order.objects.filter(restaurant__owner=self.request.user)
+        # Add ordering and limit for better performance
+        queryset = Order.objects.filter(restaurant__owner=self.request.user).order_by('-created_at')
+        
+        # Add status filtering for dashboard efficiency
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            if status_filter == 'active':
+                # Only pending and running orders for dashboard
+                queryset = queryset.filter(status__in=['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery'])
+            else:
+                queryset = queryset.filter(status=status_filter)
+        
+        return queryset
 
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
@@ -636,8 +648,16 @@ class RestaurantAnalyticsView(APIView):
             # Get restaurant owned by current user
             restaurant = Restaurant.objects.get(owner=request.user)
             
-            # Get orders for this restaurant
-            orders = Order.objects.filter(restaurant=restaurant)
+            # Check cache first for faster response
+            from django.core.cache import cache
+            cache_key = f"restaurant_analytics_{restaurant.id}_{request.GET.get('period', 'daily')}"
+            cached_data = cache.get(cache_key)
+            
+            if cached_data:
+                return Response(cached_data)
+            
+            # Get orders for this restaurant (use select_related for better performance)
+            orders = Order.objects.filter(restaurant=restaurant).select_related('restaurant')
             
             # Calculate analytics
             from datetime import date, timedelta, datetime
@@ -654,9 +674,12 @@ class RestaurantAnalyticsView(APIView):
             # Total orders
             total_orders = orders.count()
             
-            # Running orders (pending, preparing, ready)
+            # Order Requests (new orders waiting for restaurant acceptance)
+            order_requests = orders.filter(status='pending').count()
+            
+            # Running orders (orders being actively processed)
             running_orders = orders.filter(
-                status__in=['pending', 'preparing', 'ready_for_pickup']
+                status__in=['preparing', 'ready_for_pickup', 'out_for_delivery']
             ).count()
             
             # Cancelled orders
@@ -677,9 +700,10 @@ class RestaurantAnalyticsView(APIView):
             period = request.GET.get('period', 'daily')
             chart_data = self.get_chart_data(restaurant, period)
             
-            return Response({
+            response_data = {
                 'daily_revenue': float(daily_revenue),
                 'total_orders': total_orders,
+                'order_requests': order_requests,
                 'running_orders': running_orders,
                 'cancelled_orders': cancelled_orders,
                 'delivered_orders': delivered_orders,
@@ -688,8 +712,14 @@ class RestaurantAnalyticsView(APIView):
                 'recent_reviews': ReviewSerializer(recent_reviews, many=True).data,
                 'restaurant_name': restaurant.name,
                 'restaurant_address': restaurant.address,
+                'restaurant_id': restaurant.id,  # Add restaurant ID for frontend
                 'chart_data': chart_data
-            })
+            }
+            
+            # Cache for 2 minutes to balance freshness and performance
+            cache.set(cache_key, response_data, 120)
+            
+            return Response(response_data)
             
         except Restaurant.DoesNotExist:
             return Response({'error': 'Restaurant not found'}, status=404)
@@ -749,54 +779,46 @@ class RestaurantAnalyticsView(APIView):
             }
             
         elif period == 'monthly':
-            # Last 12 months data
+            # Current month's daily data (Day 1, 2, 3... up to today or end of month)
             now = datetime.now()
+            current_month_start = datetime(now.year, now.month, 1)
             
-            # Get total for last 12 months
-            twelve_months_ago = datetime(now.year - 1, now.month, 1)
-            month_orders = orders.filter(created_at__gte=twelve_months_ago)
-            total_twelve_months = sum(order.total for order in month_orders)
+            # Get total for current month
+            current_month_orders = orders.filter(created_at__gte=current_month_start)
+            total_current_month = sum(order.total for order in current_month_orders)
             
             labels = []
             values = []
-            month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
             
-            # Generate data for last 12 months
-            for i in range(12):
-                # Calculate the month (going backwards from current month)
-                target_month = now.month - i
-                target_year = now.year
+            # Get number of days in current month
+            from calendar import monthrange
+            _, days_in_month = monthrange(now.year, now.month)
+            
+            # Generate daily data for current month
+            for day in range(1, days_in_month + 1):
+                day_start = datetime(now.year, now.month, day)
+                day_end = day_start + timedelta(days=1)
                 
-                if target_month <= 0:
-                    target_month += 12
-                    target_year -= 1
+                # Only include days up to today
+                if day_start.date() > now.date():
+                    break
                 
-                # Get start and end of the month
-                month_start = datetime(target_year, target_month, 1)
-                if target_month == 12:
-                    month_end = datetime(target_year + 1, 1, 1)
-                else:
-                    month_end = datetime(target_year, target_month + 1, 1)
-                
-                # Get orders for this month
-                month_revenue_orders = month_orders.filter(
-                    created_at__gte=month_start,
-                    created_at__lt=month_end
+                day_orders = current_month_orders.filter(
+                    created_at__gte=day_start,
+                    created_at__lt=day_end
                 )
-                month_revenue = sum(order.total for order in month_revenue_orders)
+                day_revenue = sum(order.total for order in day_orders)
                 
-                # Add to beginning of lists (so we show oldest to newest)
-                labels.insert(0, month_names[target_month - 1])
-                values.insert(0, float(month_revenue))
+                labels.append(str(day))
+                values.append(float(day_revenue))
             
             return {
                 'labels': labels,
                 'values': values,
                 'period': 'Monthly',
-                'total_revenue': float(total_twelve_months),
+                'total_revenue': float(total_current_month),
                 'max_value': max(values) if values else 0,
-                'description': f"Last 12 months earnings (Total: ৳{total_twelve_months})"
+                'description': f"This month's daily earnings (Total: ৳{total_current_month})"
             }
             
         elif period == 'yearly':
@@ -869,12 +891,132 @@ class RestaurantEarningsView(APIView):
             for order in delivered_orders:
                 earnings.add_earnings(order.total)
 
+        # Get additional revenue analytics
+        from datetime import datetime, timedelta
+        from django.db.models import Sum
+        from decimal import Decimal
+        
+        # Get orders for calculations
+        orders = Order.objects.filter(restaurant=restaurant, status='delivered')
+        
+        # Daily revenue (today)
+        today = datetime.now().date()
+        today_orders = orders.filter(created_at__date=today)
+        daily_revenue = sum(order.total for order in today_orders)
+        daily_commission = (daily_revenue * earnings.commission_rate) / 100
+        daily_net_revenue = daily_revenue - daily_commission
+        
+        # Monthly revenue data (last 6 months including current month)
+        monthly_data = []
+        current_date = datetime.now()
+        
+        for i in range(6):
+            if i == 0:
+                # Current month: from 1st of this month to end of today
+                month_start = current_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                month_end = current_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+            else:
+                # Previous months: full months
+                # Go back i months
+                year = current_date.year
+                month = current_date.month - i
+                
+                if month <= 0:
+                    month += 12
+                    year -= 1
+                
+                month_start = datetime(year, month, 1, 0, 0, 0, 0)
+                
+                # Get last day of the month
+                if month == 12:
+                    month_end = datetime(year + 1, 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
+                else:
+                    month_end = datetime(year, month + 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
+            
+            # Get orders for this month
+            month_orders = orders.filter(
+                created_at__gte=month_start,
+                created_at__lte=month_end
+            )
+            month_revenue = sum(order.total for order in month_orders)
+            month_commission = (month_revenue * earnings.commission_rate) / 100
+            month_net_revenue = month_revenue - month_commission
+            
+            monthly_data.insert(0, {  # Insert at beginning to get chronological order
+                'month': month_start.strftime('%b'),
+                'month_year': month_start.strftime('%b %Y'),
+                'gross_revenue': float(month_revenue),
+                'commission': float(month_commission),
+                'net_revenue': float(month_net_revenue),
+                'orders_count': month_orders.count()
+            })
+        
+        # Weekly revenue (last 4 weeks including current week)
+        weekly_data = []
+        current_date = datetime.now()
+        
+        for i in range(4):
+            if i == 0:
+                # Current week: from Monday of this week to end of today
+                days_since_monday = current_date.weekday()
+                week_start = current_date - timedelta(days=days_since_monday)
+                week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+                week_end = current_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+            else:
+                # Previous weeks: full 7-day periods
+                week_end_date = current_date - timedelta(days=7 * i)
+                week_start_date = week_end_date - timedelta(days=6)  # 7 days total
+                
+                week_start = week_start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                week_end = week_end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+            
+            week_orders = orders.filter(
+                created_at__gte=week_start,
+                created_at__lte=week_end
+            )
+            week_revenue = sum(order.total for order in week_orders)
+            week_commission = (week_revenue * earnings.commission_rate) / 100
+            week_net_revenue = week_revenue - week_commission
+            
+            weekly_data.insert(0, {
+                'week': f"Week {4-i}",
+                'week_period': f"{week_start.strftime('%m/%d')} - {week_end.strftime('%m/%d')}",
+                'gross_revenue': float(week_revenue),
+                'commission': float(week_commission),
+                'net_revenue': float(week_net_revenue),
+                'orders_count': week_orders.count()
+            })
+        
+        # Total statistics
+        total_orders = orders.count()
+        total_gross_revenue = sum(order.total for order in orders)
+        total_commission = (total_gross_revenue * earnings.commission_rate) / 100
+        
+        # Average order value
+        avg_order_value = total_gross_revenue / total_orders if total_orders > 0 else 0
+
         return Response({
             'total_earnings': float(earnings.total_earnings),
             'available_balance': float(earnings.available_balance),
             'pending_balance': float(earnings.pending_balance),
             'total_withdrawn': float(earnings.total_withdrawn),
-            'commission_rate': float(earnings.commission_rate)
+            'commission_rate': float(earnings.commission_rate),
+            
+            # Additional analytics
+            'daily_revenue': {
+                'gross': float(daily_revenue),
+                'commission': float(daily_commission),
+                'net': float(daily_net_revenue)
+            },
+            'total_statistics': {
+                'total_orders': total_orders,
+                'total_gross_revenue': float(total_gross_revenue),
+                'total_commission': float(total_commission),
+                'average_order_value': float(avg_order_value)
+            },
+            'monthly_data': monthly_data,
+            'weekly_data': weekly_data,
+            'restaurant_name': restaurant.name
         })
 
 

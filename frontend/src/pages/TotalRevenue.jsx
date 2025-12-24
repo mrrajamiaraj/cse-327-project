@@ -11,10 +11,14 @@ export default function TotalRevenue() {
     totalWithdrawn: 0,
     commissionRate: 15,
     monthlyRevenue: [],
-    dailyRevenue: 0,
-    totalOrders: 0
+    dailyRevenue: { gross: 0, commission: 0, net: 0 },
+    totalOrders: 0,
+    avgOrderValue: 0,
+    restaurantName: "",
+    weeklyData: []
   });
   const [error, setError] = useState("");
+  const [viewMode, setViewMode] = useState("monthly"); // monthly, weekly
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -31,23 +35,23 @@ export default function TotalRevenue() {
         return;
       }
 
-      // Fetch restaurant analytics and earnings
-      const [analyticsResponse, earningsResponse] = await Promise.all([
-        api.get('/restaurant/analytics/'),
-        api.get('/restaurant/earnings/')
-      ]);
-      
-      const analytics = analyticsResponse.data;
+      // Fetch restaurant earnings data
+      const earningsResponse = await api.get('/restaurant/earnings/');
       const earnings = earningsResponse.data;
+      
+      console.log('Earnings data:', earnings);
       
       setRevenueData({
         totalEarnings: earnings.total_earnings || 0,
         availableBalance: earnings.available_balance || 0,
         totalWithdrawn: earnings.total_withdrawn || 0,
         commissionRate: earnings.commission_rate || 15,
-        monthlyRevenue: generateMonthlyData(analytics.daily_revenue),
-        dailyRevenue: analytics.daily_revenue || 0,
-        totalOrders: analytics.total_orders || 0
+        monthlyRevenue: earnings.monthly_data || [],
+        dailyRevenue: earnings.daily_revenue || { gross: 0, commission: 0, net: 0 },
+        totalOrders: earnings.total_statistics?.total_orders || 0,
+        avgOrderValue: earnings.total_statistics?.average_order_value || 0,
+        restaurantName: earnings.restaurant_name || "Your Restaurant",
+        weeklyData: earnings.weekly_data || []
       });
       
     } catch (error) {
@@ -59,15 +63,6 @@ export default function TotalRevenue() {
         navigate("/login");
       }
     }
-  };
-
-  const generateMonthlyData = (dailyRevenue) => {
-    // Generate sample monthly data based on daily revenue
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    return months.map((month) => ({
-      month,
-      amount: dailyRevenue * (20 + Math.random() * 10) // Simulate monthly variation
-    }));
   };
 
   if (error) {
@@ -109,22 +104,40 @@ export default function TotalRevenue() {
             <button onClick={() => navigate(-1)} style={circleBtn} type="button">
               ←
             </button>
-            <div style={headerTitle}>Total Revenue</div>
+            <div style={headerTitle}>{revenueData.restaurantName} Revenue</div>
             <div style={{ width: 30 }} />
           </div>
 
           {/* Revenue Summary Cards */}
           <div style={{ padding: "0 12px 20px" }}>
             <div style={summaryCard}>
-              <div style={cardTitle}>Total Earnings</div>
+              <div style={cardTitle}>Total Earnings (Net)</div>
               <div style={cardAmount}>৳{revenueData.totalEarnings.toFixed(2)}</div>
-              <div style={cardSubtext}>Lifetime earnings</div>
+              <div style={cardSubtext}>After {revenueData.commissionRate}% platform commission</div>
             </div>
 
             <div style={summaryCard}>
               <div style={cardTitle}>Available Balance</div>
               <div style={{...cardAmount, color: ORANGE}}>৳{revenueData.availableBalance.toFixed(2)}</div>
               <div style={cardSubtext}>Ready for withdrawal</div>
+              {revenueData.availableBalance > 0 && (
+                <button
+                  onClick={() => navigate('/withdraw-history')}
+                  style={{
+                    marginTop: 8,
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: ORANGE,
+                    color: "#fff",
+                    fontSize: "0.7rem",
+                    cursor: "pointer",
+                    fontWeight: 600
+                  }}
+                >
+                  Withdraw Funds
+                </button>
+              )}
             </div>
 
             <div style={summaryCard}>
@@ -140,12 +153,18 @@ export default function TotalRevenue() {
             
             <div style={statsRow}>
               <div style={statItem}>
-                <div style={statLabel}>Daily Revenue</div>
-                <div style={statValue}>৳{revenueData.dailyRevenue.toFixed(2)}</div>
+                <div style={statLabel}>Today's Revenue</div>
+                <div style={statValue}>৳{revenueData.dailyRevenue.net.toFixed(2)}</div>
+                <div style={{...cardSubtext, fontSize: "0.6rem"}}>
+                  Gross: ৳{revenueData.dailyRevenue.gross.toFixed(2)}
+                </div>
               </div>
               <div style={statItem}>
                 <div style={statLabel}>Total Orders</div>
                 <div style={statValue}>{revenueData.totalOrders}</div>
+                <div style={{...cardSubtext, fontSize: "0.6rem"}}>
+                  Avg: ৳{revenueData.avgOrderValue.toFixed(2)}
+                </div>
               </div>
             </div>
 
@@ -153,30 +172,82 @@ export default function TotalRevenue() {
               <div style={statItem}>
                 <div style={statLabel}>Commission Rate</div>
                 <div style={statValue}>{revenueData.commissionRate}%</div>
+                <div style={{...cardSubtext, fontSize: "0.6rem"}}>Platform fee</div>
               </div>
               <div style={statItem}>
-                <div style={statLabel}>Net Rate</div>
+                <div style={statLabel}>Your Share</div>
                 <div style={statValue}>{(100 - revenueData.commissionRate)}%</div>
+                <div style={{...cardSubtext, fontSize: "0.6rem"}}>Net earnings</div>
               </div>
             </div>
           </div>
 
-          {/* Monthly Revenue Chart */}
+          {/* Revenue Chart */}
           <div style={{ padding: "0 12px 20px" }}>
-            <div style={sectionTitle}>Monthly Revenue Trend</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={sectionTitle}>Revenue Trend</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => setViewMode("weekly")}
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    border: "1px solid #ddd",
+                    background: viewMode === "weekly" ? ORANGE : "transparent",
+                    color: viewMode === "weekly" ? "#fff" : "#666",
+                    fontSize: "0.65rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Weekly
+                </button>
+                <button
+                  onClick={() => setViewMode("monthly")}
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    border: "1px solid #ddd",
+                    background: viewMode === "monthly" ? ORANGE : "transparent",
+                    color: viewMode === "monthly" ? "#fff" : "#666",
+                    fontSize: "0.65rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Monthly
+                </button>
+              </div>
+            </div>
+            
             <div style={chartContainer}>
-              {revenueData.monthlyRevenue.map((item, index) => (
-                <div key={index} style={chartItem}>
-                  <div 
-                    style={{
-                      ...chartBar,
-                      height: `${Math.min((item.amount / Math.max(...revenueData.monthlyRevenue.map(m => m.amount))) * 80, 80)}px`
-                    }}
-                  />
-                  <div style={chartLabel}>{item.month}</div>
-                  <div style={chartValue}>৳{item.amount.toFixed(0)}</div>
-                </div>
-              ))}
+              {(viewMode === "monthly" ? revenueData.monthlyRevenue : revenueData.weeklyData).map((item, index) => {
+                const data = viewMode === "monthly" ? revenueData.monthlyRevenue : revenueData.weeklyData;
+                const maxValue = Math.max(...data.map(d => d.net_revenue || d.amount || 0));
+                const value = item.net_revenue || item.amount || 0;
+                const height = maxValue > 0 ? Math.max((value / maxValue) * 80, 5) : 5;
+                
+                return (
+                  <div key={index} style={chartItem}>
+                    <div 
+                      style={{
+                        ...chartBar,
+                        height: `${height}px`
+                      }}
+                    />
+                    <div style={chartLabel}>{item.month || item.week}</div>
+                    <div style={chartValue}>৳{value.toFixed(0)}</div>
+                    {viewMode === "monthly" && item.orders_count !== undefined && (
+                      <div style={{...chartValue, fontSize: "0.5rem", color: "#ccc"}}>
+                        {item.orders_count} orders
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            {/* Chart Legend */}
+            <div style={{ marginTop: 8, fontSize: "0.65rem", color: "#666", textAlign: "center" }}>
+              Showing net revenue (after {revenueData.commissionRate}% commission)
             </div>
           </div>
 

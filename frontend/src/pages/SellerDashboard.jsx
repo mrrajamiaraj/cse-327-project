@@ -68,43 +68,38 @@ export default function SellerDashboard() {
 
       console.log(`Fetching dashboard data for period: ${period}`);
 
-      // Make all API calls in parallel for faster loading
-      const [restaurantResponse, analyticsResponse, ordersResponse] = await Promise.all([
-        api.get('/restaurant/profile/'),
-        api.get('/restaurant/analytics/', { params: { period } }),
-        api.get('/restaurant/orders/')
-      ]);
-
-      const restaurant = restaurantResponse.data;
+      // Prioritize analytics API call (contains most data we need)
+      const analyticsResponse = await api.get('/restaurant/analytics/', { params: { period } });
       const analytics = analyticsResponse.data;
-      const orders = ordersResponse.data || [];
 
-      console.log('Restaurant profile:', restaurant);
       console.log('Analytics data:', analytics);
       console.log('Chart data:', analytics.chart_data);
 
-      // Fetch popular items (non-critical, can be async)
+      // Get restaurant profile in parallel with popular items (non-critical)
+      const [restaurantResponse, popularItemsData] = await Promise.all([
+        api.get('/restaurant/profile/'),
+        // Fetch popular items directly without orders data
+        api.get('/customer/food/', {
+          params: { 
+            restaurant: analytics.restaurant_id || 1, // Use restaurant ID from analytics
+            ordering: '-id', // Simple ordering instead of orders_count
+            limit: 2 // Limit to just 2 items
+          }
+        }).catch(() => ({ data: [] })) // Graceful fallback
+      ]);
+
+      const restaurant = restaurantResponse.data;
+      
+      // Process popular items
       let popularItems = [];
       try {
-        const foodResponse = await api.get('/customer/food/', {
-          params: { restaurant: restaurant.id, ordering: '-orders_count' }
-        });
-        const foodData = foodResponse.data;
+        const foodData = popularItemsData.data;
         const foods = foodData.results || foodData || [];
         popularItems = foods.slice(0, 2);
       } catch (foodError) {
         console.log("Could not fetch food items:", foodError);
         popularItems = [];
       }
-
-      // Calculate dashboard metrics
-      const runningOrders = orders.filter(order => 
-        ['pending', 'preparing', 'ready_for_pickup'].includes(order.status)
-      ).length;
-
-      const orderRequests = orders.filter(order => 
-        order.status === 'pending'
-      ).length;
 
       // Ensure chart data has proper structure
       const chartData = analytics.chart_data || {
@@ -129,8 +124,8 @@ export default function SellerDashboard() {
 
       const newData = {
         location: analytics.restaurant_address || restaurant.name || "Your Restaurant",
-        runningOrders,
-        orderRequests,
+        runningOrders: analytics.running_orders || 0,
+        orderRequests: analytics.order_requests || 0,
         totalRevenue: analytics.chart_data?.total_revenue || analytics.daily_revenue || 0,
         revenuePeriod: period.charAt(0).toUpperCase() + period.slice(1),
         reviews: {
