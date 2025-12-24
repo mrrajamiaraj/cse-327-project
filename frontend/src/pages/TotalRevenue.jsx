@@ -15,7 +15,9 @@ export default function TotalRevenue() {
     totalOrders: 0,
     avgOrderValue: 0,
     restaurantName: "",
-    weeklyData: []
+    weeklyData: [],
+    dailyData: [],
+    yearlyData: []
   });
   const [error, setError] = useState("");
   const [viewMode, setViewMode] = useState("monthly"); // monthly, weekly
@@ -51,7 +53,9 @@ export default function TotalRevenue() {
         totalOrders: earnings.total_statistics?.total_orders || 0,
         avgOrderValue: earnings.total_statistics?.average_order_value || 0,
         restaurantName: earnings.restaurant_name || "Your Restaurant",
-        weeklyData: earnings.weekly_data || []
+        weeklyData: earnings.weekly_data || [],
+        dailyData: earnings.daily_data || [],
+        yearlyData: earnings.yearly_data || []
       });
       
     } catch (error) {
@@ -185,8 +189,22 @@ export default function TotalRevenue() {
           {/* Revenue Chart */}
           <div style={{ padding: "0 12px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={sectionTitle}>Revenue Trend</div>
+              <div style={sectionTitle}>Revenue Analytics</div>
               <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => setViewMode("daily")}
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    border: "1px solid #ddd",
+                    background: viewMode === "daily" ? ORANGE : "transparent",
+                    color: viewMode === "daily" ? "#fff" : "#666",
+                    fontSize: "0.65rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Daily
+                </button>
                 <button
                   onClick={() => setViewMode("weekly")}
                   style={{
@@ -215,39 +233,112 @@ export default function TotalRevenue() {
                 >
                   Monthly
                 </button>
+                <button
+                  onClick={() => setViewMode("yearly")}
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    border: "1px solid #ddd",
+                    background: viewMode === "yearly" ? ORANGE : "transparent",
+                    color: viewMode === "yearly" ? "#fff" : "#666",
+                    fontSize: "0.65rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Yearly
+                </button>
               </div>
             </div>
             
+            {/* Chart description */}
+            <div style={{ fontSize: "0.65rem", color: "#666", marginBottom: 12, textAlign: "center" }}>
+              {viewMode === "daily" && "Revenue trend over the last 7 days"}
+              {viewMode === "weekly" && "Revenue trend over the last 8 weeks"}
+              {viewMode === "monthly" && "Revenue trend over the last 12 months"}
+              {viewMode === "yearly" && "Revenue trend over the last 5 years"}
+            </div>
+            
             <div style={chartContainer}>
-              {(viewMode === "monthly" ? revenueData.monthlyRevenue : revenueData.weeklyData).map((item, index) => {
-                const data = viewMode === "monthly" ? revenueData.monthlyRevenue : revenueData.weeklyData;
-                const maxValue = Math.max(...data.map(d => d.net_revenue || d.amount || 0));
-                const value = item.net_revenue || item.amount || 0;
-                const height = maxValue > 0 ? Math.max((value / maxValue) * 80, 5) : 5;
+              {/* Get chart data based on view mode */}
+              {(() => {
+                let chartData = [];
+                let periodLabel = "";
                 
-                return (
-                  <div key={index} style={chartItem}>
-                    <div 
-                      style={{
-                        ...chartBar,
-                        height: `${height}px`
-                      }}
-                    />
-                    <div style={chartLabel}>{item.month || item.week}</div>
-                    <div style={chartValue}>৳{value.toFixed(0)}</div>
-                    {viewMode === "monthly" && item.orders_count !== undefined && (
-                      <div style={{...chartValue, fontSize: "0.5rem", color: "#ccc"}}>
-                        {item.orders_count} orders
+                if (viewMode === "daily") {
+                  // Use last 7 days from analytics API (we'll need to add this)
+                  chartData = revenueData.dailyData || [];
+                  periodLabel = "Last 7 Days";
+                } else if (viewMode === "weekly") {
+                  chartData = revenueData.weeklyData || [];
+                  periodLabel = "Last 8 Weeks";
+                } else if (viewMode === "monthly") {
+                  chartData = revenueData.monthlyRevenue || [];
+                  periodLabel = "Last 12 Months";
+                } else if (viewMode === "yearly") {
+                  // Use yearly data (we'll need to add this)
+                  chartData = revenueData.yearlyData || [];
+                  periodLabel = "Last 5 Years";
+                }
+                
+                const maxValue = Math.max(...chartData.map(d => d.net_revenue || d.amount || 0));
+                
+                return chartData.map((item, index) => {
+                  const value = item.net_revenue || item.amount || 0;
+                  const height = maxValue > 0 ? Math.max((value / maxValue) * 80, 5) : 5;
+                  const orders = item.orders_count || 0;
+                  
+                  return (
+                    <div key={index} style={chartItem}>
+                      {/* Tooltip on hover */}
+                      <div 
+                        style={{
+                          ...chartBar,
+                          height: `${height}px`,
+                          position: "relative",
+                          cursor: "pointer"
+                        }}
+                        title={`${item.month || item.week || item.day || item.year}: ৳${value.toFixed(0)} (${orders} orders)`}
+                      />
+                      <div style={chartLabel}>
+                        {item.month || item.week || item.day || item.year}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
+                      <div style={chartValue}>৳{value >= 1000 ? `${(value/1000).toFixed(1)}k` : value.toFixed(0)}</div>
+                      {orders > 0 && (
+                        <div style={{...chartValue, fontSize: "0.5rem", color: "#ccc"}}>
+                          {orders} orders
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
             </div>
             
             {/* Chart Legend */}
-            <div style={{ marginTop: 8, fontSize: "0.65rem", color: "#666", textAlign: "center" }}>
-              Showing net revenue (after {revenueData.commissionRate}% commission)
+            <div style={{ marginTop: 12, fontSize: "0.65rem", color: "#666", textAlign: "center" }}>
+              <div>Showing net revenue (after {revenueData.commissionRate}% commission)</div>
+              <div style={{ marginTop: 4 }}>
+                Total: ৳{(() => {
+                  let chartData = [];
+                  if (viewMode === "daily") chartData = revenueData.dailyData || [];
+                  else if (viewMode === "weekly") chartData = revenueData.weeklyData || [];
+                  else if (viewMode === "monthly") chartData = revenueData.monthlyRevenue || [];
+                  else if (viewMode === "yearly") chartData = revenueData.yearlyData || [];
+                  
+                  const total = chartData.reduce((sum, item) => sum + (item.net_revenue || item.amount || 0), 0);
+                  return total.toLocaleString();
+                })()} • 
+                {(() => {
+                  let chartData = [];
+                  if (viewMode === "daily") chartData = revenueData.dailyData || [];
+                  else if (viewMode === "weekly") chartData = revenueData.weeklyData || [];
+                  else if (viewMode === "monthly") chartData = revenueData.monthlyRevenue || [];
+                  else if (viewMode === "yearly") chartData = revenueData.yearlyData || [];
+                  
+                  const totalOrders = chartData.reduce((sum, item) => sum + (item.orders_count || 0), 0);
+                  return totalOrders;
+                })()} orders
+              </div>
             </div>
           </div>
 

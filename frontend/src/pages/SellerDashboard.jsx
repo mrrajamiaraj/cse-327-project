@@ -302,7 +302,7 @@ export default function SellerDashboard() {
                     color: "#a0a0aa",
                   }}
                 >
-                  Total Revenue ({data.revenuePeriod})
+                  Revenue ({data.chartData.period_description || data.revenuePeriod})
                 </div>
                 <div
                   style={{
@@ -312,6 +312,16 @@ export default function SellerDashboard() {
                   }}
                 >
                   ৳{data.totalRevenue.toLocaleString()}
+                </div>
+                {/* Additional business metrics */}
+                <div
+                  style={{
+                    fontSize: "0.6rem",
+                    color: "#666",
+                    marginTop: 2,
+                  }}
+                >
+                  {data.chartData.total_orders || 0} orders • Avg ৳{(data.chartData.avg_order_value || 0).toFixed(0)}
                 </div>
               </div>
 
@@ -337,6 +347,7 @@ export default function SellerDashboard() {
                   }}
                 >
                   <option value="Daily">Daily</option>
+                  <option value="Weekly">Weekly</option>
                   <option value="Monthly">Monthly</option>
                   <option value="Yearly">Yearly</option>
                 </select>
@@ -350,17 +361,37 @@ export default function SellerDashboard() {
                     cursor: "pointer",
                   }}
                 >
-                  See Details
+                  Details
                 </button>
               </div>
             </div>
+
+            {/* Business insights */}
+            {data.chartData.avg_daily !== undefined && (
+              <div
+                style={{
+                  fontSize: "0.6rem",
+                  color: "#888",
+                  marginBottom: 8,
+                  padding: "4px 8px",
+                  background: "rgba(255, 122, 0, 0.05)",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255, 122, 0, 0.1)"
+                }}
+              >
+                {data.revenuePeriod === 'Daily' && `Avg daily: ৳${(data.chartData.avg_daily || 0).toFixed(0)}`}
+                {data.revenuePeriod === 'Weekly' && `Avg weekly: ৳${(data.chartData.avg_weekly || 0).toFixed(0)}`}
+                {data.revenuePeriod === 'Monthly' && `Avg monthly: ৳${(data.chartData.avg_monthly || 0).toFixed(0)}`}
+                {data.revenuePeriod === 'Yearly' && `Avg yearly: ৳${(data.chartData.avg_yearly || 0).toFixed(0)}`}
+              </div>
+            )}
 
             {/* Modern Bar Chart */}
             <div style={{ marginTop: 4 }}>
               <div
                 style={{
                   position: "relative",
-                  height: 120,
+                  height: 140,
                   borderRadius: 16,
                   background: "linear-gradient(135deg, #fff5eb 0%, #ffffff 100%)",
                   padding: "16px 12px 8px",
@@ -372,16 +403,16 @@ export default function SellerDashboard() {
                   display: "flex",
                   alignItems: "end",
                   justifyContent: "space-between",
-                  height: "70px",
+                  height: "80px",
                   marginBottom: "8px",
-                  gap: "3px"
+                  gap: "2px"
                 }}>
                   {data.chartData && data.chartData.values && data.chartData.values.length > 0 ? (
                     data.chartData.values.map((value, index) => {
                       const maxValue = Math.max(...data.chartData.values);
-                      const height = maxValue > 0 ? (value / maxValue) * 60 : 0;
+                      const height = maxValue > 0 ? (value / maxValue) * 70 : 0;
                       const isSelected = selectedBarIndex === index;
-                      const isHighest = value === maxValue && value > 0;
+                      const orderCount = data.chartData.order_counts ? data.chartData.order_counts[index] : 0;
                       
                       return (
                         <div
@@ -403,21 +434,25 @@ export default function SellerDashboard() {
                             <div
                               style={{
                                 position: "absolute",
-                                top: "-24px",
+                                top: "-32px",
                                 left: "50%",
                                 transform: "translateX(-50%)",
                                 background: "#333",
                                 color: "white",
-                                padding: "3px 8px",
+                                padding: "4px 8px",
                                 borderRadius: "6px",
-                                fontSize: "0.6rem",
+                                fontSize: "0.55rem",
                                 fontWeight: "600",
                                 whiteSpace: "nowrap",
                                 zIndex: 10,
-                                boxShadow: "0 2px 8px rgba(0,0,0,0.2)"
+                                boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                                textAlign: "center"
                               }}
                             >
-                              ৳{value >= 1000 ? `${(value/1000).toFixed(1)}k` : value.toFixed(0)}
+                              <div>৳{value >= 1000 ? `${(value/1000).toFixed(1)}k` : value.toFixed(0)}</div>
+                              <div style={{ fontSize: "0.5rem", opacity: 0.8 }}>
+                                {orderCount} order{orderCount !== 1 ? 's' : ''}
+                              </div>
                               {/* Tooltip arrow */}
                               <div style={{
                                 position: "absolute",
@@ -437,24 +472,20 @@ export default function SellerDashboard() {
                           <div
                             style={{
                               width: "100%",
-                              maxWidth: "16px",
+                              maxWidth: data.chartData.values.length > 10 ? "12px" : "16px",
                               height: `${height}px`,
                               background: isSelected
                                 ? `linear-gradient(180deg, #ff5722 0%, #ff7043 100%)`
-                                : isHighest 
+                                : value > 0 
                                   ? `linear-gradient(180deg, ${ORANGE} 0%, #ff9533 100%)`
-                                  : value > 0 
-                                    ? `linear-gradient(180deg, #ffb366 0%, #ffc999 100%)`
-                                    : "#f0f0f0",
+                                  : "#f0f0f0",
                               borderRadius: "3px 3px 1px 1px",
                               transition: "all 0.2s ease",
                               boxShadow: isSelected
                                 ? `0 4px 12px rgba(255, 87, 34, 0.4)`
-                                : isHighest 
+                                : value > 0 
                                   ? `0 2px 8px rgba(255, 122, 0, 0.3)`
-                                  : value > 0 
-                                    ? `0 1px 3px rgba(255, 179, 102, 0.2)`
-                                    : "none",
+                                  : "none",
                               animation: `barGrow 0.6s ease-out ${index * 0.1}s both`,
                               transform: isSelected ? "scale(1.05)" : "scale(1)"
                             }}
@@ -511,7 +542,7 @@ export default function SellerDashboard() {
                   )}
                 </div>
 
-                {/* Selected bar info */}
+                {/* Selected bar detailed info */}
                 {selectedBarIndex !== null && 
                  data.chartData.values && 
                  data.chartData.values[selectedBarIndex] !== undefined && 
@@ -526,7 +557,8 @@ export default function SellerDashboard() {
                     <div style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      alignItems: "center"
+                      alignItems: "center",
+                      marginBottom: "4px"
                     }}>
                       <div style={{
                         fontSize: "0.65rem",
@@ -543,6 +575,17 @@ export default function SellerDashboard() {
                         ৳{data.chartData.values[selectedBarIndex].toLocaleString()}
                       </div>
                     </div>
+                    {data.chartData.order_counts && (
+                      <div style={{
+                        fontSize: "0.6rem",
+                        color: "#888"
+                      }}>
+                        {data.chartData.order_counts[selectedBarIndex]} orders • 
+                        Avg ৳{data.chartData.order_counts[selectedBarIndex] > 0 ? 
+                          (data.chartData.values[selectedBarIndex] / data.chartData.order_counts[selectedBarIndex]).toFixed(0) : 
+                          0} per order
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -591,7 +634,7 @@ export default function SellerDashboard() {
                   top: "16px",
                   left: "12px",
                   right: "12px",
-                  height: "70px",
+                  height: "80px",
                   pointerEvents: "none",
                   zIndex: 1
                 }}>

@@ -727,137 +727,204 @@ class RestaurantAnalyticsView(APIView):
             return Response({'error': str(e)}, status=500)
     
     def get_chart_data(self, restaurant, period):
-        """Generate chart data based on period (daily, monthly, yearly)"""
+        """Generate business-standard chart data based on period"""
         from datetime import datetime, timedelta, date
         from django.db.models import Sum
         from calendar import monthrange
         
         orders = Order.objects.filter(restaurant=restaurant, status='delivered')
+        now = datetime.now()
         
         if period == 'daily':
-            # Today's hourly data
-            today = date.today()
-            today_orders = orders.filter(created_at__date=today)
-            
-            # Calculate total earnings for today
-            total_today = sum(order.total for order in today_orders)
-            
-            # Generate hourly data for today (24 hours)
+            # Last 7 days (business standard for daily view)
             labels = []
             values = []
+            order_counts = []
+            total_revenue = 0
             
-            for hour in range(24):
-                hour_start = datetime.combine(today, datetime.min.time()) + timedelta(hours=hour)
-                hour_end = hour_start + timedelta(hours=1)
-                
-                hour_orders = today_orders.filter(
-                    created_at__gte=hour_start,
-                    created_at__lt=hour_end
-                )
-                hour_revenue = sum(order.total for order in hour_orders)
-                
-                # Format hour label
-                if hour == 0:
-                    label = "12AM"
-                elif hour < 12:
-                    label = f"{hour}AM"
-                elif hour == 12:
-                    label = "12PM"
-                else:
-                    label = f"{hour-12}PM"
-                
-                labels.append(label)
-                values.append(float(hour_revenue))
-            
-            return {
-                'labels': labels,
-                'values': values,
-                'period': 'Daily',
-                'total_revenue': float(total_today),
-                'max_value': max(values) if values else 0,
-                'description': f"Today's hourly earnings (Total: ৳{total_today})"
-            }
-            
-        elif period == 'monthly':
-            # Current month's daily data (Day 1, 2, 3... up to today or end of month)
-            now = datetime.now()
-            current_month_start = datetime(now.year, now.month, 1)
-            
-            # Get total for current month
-            current_month_orders = orders.filter(created_at__gte=current_month_start)
-            total_current_month = sum(order.total for order in current_month_orders)
-            
-            labels = []
-            values = []
-            
-            # Get number of days in current month
-            from calendar import monthrange
-            _, days_in_month = monthrange(now.year, now.month)
-            
-            # Generate daily data for current month
-            for day in range(1, days_in_month + 1):
-                day_start = datetime(now.year, now.month, day)
+            for i in range(6, -1, -1):  # 6 days ago to today
+                target_date = now.date() - timedelta(days=i)
+                day_start = datetime.combine(target_date, datetime.min.time())
                 day_end = day_start + timedelta(days=1)
                 
-                # Only include days up to today
-                if day_start.date() > now.date():
-                    break
-                
-                day_orders = current_month_orders.filter(
+                day_orders = orders.filter(
                     created_at__gte=day_start,
                     created_at__lt=day_end
                 )
                 day_revenue = sum(order.total for order in day_orders)
+                day_count = day_orders.count()
                 
-                labels.append(str(day))
+                # Format label (Mon, Tue, Wed, etc.)
+                if i == 0:
+                    label = "Today"
+                elif i == 1:
+                    label = "Yesterday"
+                else:
+                    label = target_date.strftime('%a')  # Mon, Tue, Wed
+                
+                labels.append(label)
                 values.append(float(day_revenue))
+                order_counts.append(day_count)
+                total_revenue += day_revenue
             
             return {
                 'labels': labels,
                 'values': values,
-                'period': 'Monthly',
-                'total_revenue': float(total_current_month),
+                'order_counts': order_counts,
+                'period': 'Daily',
+                'period_description': 'Last 7 Days',
+                'total_revenue': float(total_revenue),
                 'max_value': max(values) if values else 0,
-                'description': f"This month's daily earnings (Total: ৳{total_current_month})"
+                'avg_daily': float(total_revenue / 7),
+                'total_orders': sum(order_counts),
+                'avg_order_value': float(total_revenue / sum(order_counts)) if sum(order_counts) > 0 else 0,
+                'description': f"Revenue trend over the last 7 days"
             }
             
-        elif period == 'yearly':
-            # Current year's monthly data
-            current_year = datetime.now().year
-            year_start = datetime(current_year, 1, 1)
-            
-            # Get total for current year
-            year_orders = orders.filter(created_at__gte=year_start)
-            total_year = sum(order.total for order in year_orders)
-            
+        elif period == 'weekly':
+            # Last 8 weeks (business standard for weekly view)
             labels = []
             values = []
-            month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            order_counts = []
+            total_revenue = 0
             
-            for month in range(1, 13):
-                month_start = datetime(current_year, month, 1)
-                if month == 12:
-                    month_end = datetime(current_year + 1, 1, 1)
-                else:
-                    month_end = datetime(current_year, month + 1, 1)
+            for i in range(7, -1, -1):  # 7 weeks ago to this week
+                # Calculate week start (Monday) and end (Sunday)
+                days_since_monday = now.weekday()
+                current_week_start = now - timedelta(days=days_since_monday, weeks=i)
+                week_start = current_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+                week_end = week_start + timedelta(days=7)
                 
-                month_orders = year_orders.filter(
+                week_orders = orders.filter(
+                    created_at__gte=week_start,
+                    created_at__lt=week_end
+                )
+                week_revenue = sum(order.total for order in week_orders)
+                week_count = week_orders.count()
+                
+                # Format label
+                if i == 0:
+                    label = "This Week"
+                elif i == 1:
+                    label = "Last Week"
+                else:
+                    label = f"{week_start.strftime('%m/%d')}"
+                
+                labels.append(label)
+                values.append(float(week_revenue))
+                order_counts.append(week_count)
+                total_revenue += week_revenue
+            
+            return {
+                'labels': labels,
+                'values': values,
+                'order_counts': order_counts,
+                'period': 'Weekly',
+                'period_description': 'Last 8 Weeks',
+                'total_revenue': float(total_revenue),
+                'max_value': max(values) if values else 0,
+                'avg_weekly': float(total_revenue / 8),
+                'total_orders': sum(order_counts),
+                'avg_order_value': float(total_revenue / sum(order_counts)) if sum(order_counts) > 0 else 0,
+                'description': f"Revenue trend over the last 8 weeks"
+            }
+            
+        elif period == 'monthly':
+            # Last 12 months (business standard for monthly view)
+            labels = []
+            values = []
+            order_counts = []
+            total_revenue = 0
+            
+            for i in range(11, -1, -1):  # 11 months ago to this month
+                # Calculate month start and end
+                target_date = now.replace(day=1) - timedelta(days=32*i)
+                month_start = target_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                
+                if month_start.month == 12:
+                    month_end = month_start.replace(year=month_start.year + 1, month=1)
+                else:
+                    month_end = month_start.replace(month=month_start.month + 1)
+                
+                month_orders = orders.filter(
                     created_at__gte=month_start,
                     created_at__lt=month_end
                 )
                 month_revenue = sum(order.total for order in month_orders)
+                month_count = month_orders.count()
                 
-                labels.append(month_names[month - 1])
+                # Format label
+                if i == 0:
+                    label = "This Month"
+                elif i == 1:
+                    label = "Last Month"
+                else:
+                    label = month_start.strftime('%b %y')  # Jan 25, Feb 25, etc.
+                
+                labels.append(label)
                 values.append(float(month_revenue))
+                order_counts.append(month_count)
+                total_revenue += month_revenue
             
             return {
                 'labels': labels,
                 'values': values,
-                'period': 'Yearly',
-                'total_revenue': float(total_year),
+                'order_counts': order_counts,
+                'period': 'Monthly',
+                'period_description': 'Last 12 Months',
+                'total_revenue': float(total_revenue),
                 'max_value': max(values) if values else 0,
-                'description': f"This year's monthly earnings (Total: ৳{total_year})"
+                'avg_monthly': float(total_revenue / 12),
+                'total_orders': sum(order_counts),
+                'avg_order_value': float(total_revenue / sum(order_counts)) if sum(order_counts) > 0 else 0,
+                'description': f"Revenue trend over the last 12 months"
+            }
+            
+        elif period == 'yearly':
+            # Last 5 years (business standard for yearly view)
+            labels = []
+            values = []
+            order_counts = []
+            total_revenue = 0
+            
+            current_year = now.year
+            for i in range(4, -1, -1):  # 4 years ago to this year
+                target_year = current_year - i
+                year_start = datetime(target_year, 1, 1)
+                year_end = datetime(target_year + 1, 1, 1)
+                
+                year_orders = orders.filter(
+                    created_at__gte=year_start,
+                    created_at__lt=year_end
+                )
+                year_revenue = sum(order.total for order in year_orders)
+                year_count = year_orders.count()
+                
+                # Format label
+                if i == 0:
+                    label = "This Year"
+                elif i == 1:
+                    label = "Last Year"
+                else:
+                    label = str(target_year)
+                
+                labels.append(label)
+                values.append(float(year_revenue))
+                order_counts.append(year_count)
+                total_revenue += year_revenue
+            
+            return {
+                'labels': labels,
+                'values': values,
+                'order_counts': order_counts,
+                'period': 'Yearly',
+                'period_description': 'Last 5 Years',
+                'total_revenue': float(total_revenue),
+                'max_value': max(values) if values else 0,
+                'avg_yearly': float(total_revenue / 5),
+                'total_orders': sum(order_counts),
+                'avg_order_value': float(total_revenue / sum(order_counts)) if sum(order_counts) > 0 else 0,
+                'description': f"Revenue trend over the last 5 years"
             }
         
         # Default to daily if invalid period
@@ -891,13 +958,77 @@ class RestaurantEarningsView(APIView):
             for order in delivered_orders:
                 earnings.add_earnings(order.total)
 
-        # Get additional revenue analytics
+        # Get additional revenue analytics using the same logic as dashboard
         from datetime import datetime, timedelta
         from django.db.models import Sum
         from decimal import Decimal
         
         # Get orders for calculations
         orders = Order.objects.filter(restaurant=restaurant, status='delivered')
+        now = datetime.now()
+        
+        # Daily revenue data (last 7 days)
+        daily_data = []
+        for i in range(6, -1, -1):  # 6 days ago to today
+            target_date = now.date() - timedelta(days=i)
+            day_start = datetime.combine(target_date, datetime.min.time())
+            day_end = day_start + timedelta(days=1)
+            
+            day_orders = orders.filter(
+                created_at__gte=day_start,
+                created_at__lt=day_end
+            )
+            day_revenue = sum(order.total for order in day_orders)
+            day_commission = (day_revenue * earnings.commission_rate) / 100
+            day_net_revenue = day_revenue - day_commission
+            
+            if i == 0:
+                label = "Today"
+            elif i == 1:
+                label = "Yesterday"
+            else:
+                label = target_date.strftime('%a')  # Mon, Tue, Wed
+            
+            daily_data.append({
+                'day': label,
+                'date': target_date.strftime('%Y-%m-%d'),
+                'gross_revenue': float(day_revenue),
+                'commission': float(day_commission),
+                'net_revenue': float(day_net_revenue),
+                'orders_count': day_orders.count()
+            })
+        
+        # Yearly data (last 5 years)
+        yearly_data = []
+        current_year = now.year
+        for i in range(4, -1, -1):  # 4 years ago to this year
+            target_year = current_year - i
+            year_start = datetime(target_year, 1, 1)
+            year_end = datetime(target_year + 1, 1, 1)
+            
+            year_orders = orders.filter(
+                created_at__gte=year_start,
+                created_at__lt=year_end
+            )
+            year_revenue = sum(order.total for order in year_orders)
+            year_commission = (year_revenue * earnings.commission_rate) / 100
+            year_net_revenue = year_revenue - year_commission
+            
+            if i == 0:
+                label = "This Year"
+            elif i == 1:
+                label = "Last Year"
+            else:
+                label = str(target_year)
+            
+            yearly_data.append({
+                'year': label,
+                'year_number': target_year,
+                'gross_revenue': float(year_revenue),
+                'commission': float(year_commission),
+                'net_revenue': float(year_net_revenue),
+                'orders_count': year_orders.count()
+            })
         
         # Daily revenue (today)
         today = datetime.now().date()
@@ -1016,6 +1147,8 @@ class RestaurantEarningsView(APIView):
             },
             'monthly_data': monthly_data,
             'weekly_data': weekly_data,
+            'daily_data': daily_data,  # Add daily data for charts
+            'yearly_data': yearly_data,  # Add yearly data for charts
             'restaurant_name': restaurant.name
         })
 

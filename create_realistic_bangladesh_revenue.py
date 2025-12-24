@@ -172,7 +172,7 @@ def create_realistic_bangladesh_revenue():
                     delivery_fee = Decimal('60.00')  # ৳60 is typical
                     total = subtotal + delivery_fee
                     
-                    # Create the order
+                    # Create the order with proper timestamp
                     order = Order.objects.create(
                         user=customer,
                         restaurant=restaurant,
@@ -182,6 +182,12 @@ def create_realistic_bangladesh_revenue():
                         total=total,
                         payment_method=random.choice(['cod', 'card', 'mobile_banking']),
                         status='delivered',  # All orders are delivered for revenue calculation
+                        created_at=order_time,
+                        updated_at=order_time
+                    )
+                    
+                    # Manually set the created_at to ensure it's saved correctly
+                    Order.objects.filter(id=order.id).update(
                         created_at=order_time,
                         updated_at=order_time
                     )
