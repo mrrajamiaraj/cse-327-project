@@ -415,3 +415,67 @@ class OrderChatMessage(models.Model):
         if self.order.rider:
             participants.append(self.order.rider)  # Rider
         return participants
+
+
+class LoginLog(models.Model):
+    """Track user login activities"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_logs')
+    login_time = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True, help_text="IP address of the login")
+    user_agent = models.TextField(null=True, blank=True, help_text="Browser/device information")
+    success = models.BooleanField(default=True, help_text="Whether login was successful")
+    failure_reason = models.CharField(max_length=200, null=True, blank=True, help_text="Reason for login failure")
+    session_key = models.CharField(max_length=40, null=True, blank=True, help_text="Django session key")
+    
+    class Meta:
+        ordering = ['-login_time']
+        verbose_name = "Login Log"
+        verbose_name_plural = "Login Logs"
+        indexes = [
+            models.Index(fields=['user', '-login_time']),
+            models.Index(fields=['-login_time']),
+            models.Index(fields=['success']),
+        ]
+    
+    def __str__(self):
+        status = "✅ Success" if self.success else "❌ Failed"
+        role_icons = {
+            'customer': '👤',
+            'restaurant': '🏪', 
+            'rider': '🚴',
+            'admin': '👑'
+        }
+        icon = role_icons.get(self.user.role, '👤')
+        return f"{icon} {self.user.email} - {status} - {self.login_time.strftime('%Y-%m-%d %H:%M:%S')}"
+    
+    @property
+    def browser_info(self):
+        """Extract browser info from user agent"""
+        if not self.user_agent:
+            return "Unknown"
+        
+        user_agent = self.user_agent.lower()
+        if 'chrome' in user_agent:
+            return "Chrome"
+        elif 'firefox' in user_agent:
+            return "Firefox"
+        elif 'safari' in user_agent:
+            return "Safari"
+        elif 'edge' in user_agent:
+            return "Edge"
+        else:
+            return "Other"
+    
+    @property
+    def device_type(self):
+        """Extract device type from user agent"""
+        if not self.user_agent:
+            return "Unknown"
+        
+        user_agent = self.user_agent.lower()
+        if 'mobile' in user_agent or 'android' in user_agent or 'iphone' in user_agent:
+            return "Mobile"
+        elif 'tablet' in user_agent or 'ipad' in user_agent:
+            return "Tablet"
+        else:
+            return "Desktop"

@@ -27,6 +27,7 @@ router.register(r'restaurant/orders', RestaurantOrderViewSet, basename='restaura
 router.register(r'restaurant/reviews', RestaurantReviewViewSet, basename='restaurant-review')
 router.register(r'rider/orders/available', RiderAvailableOrderViewSet, basename='rider-available-order')
 router.register(r'rider/orders/history', RiderOrderHistoryViewSet, basename='rider-order-history')
+router.register(r'admin/login-logs', LoginLogViewSet, basename='login-log')
 
 router.register(r'admin/users', AdminUserViewSet, basename='admin-user')
 router.register(r'admin/restaurants', AdminRestaurantViewSet, basename='admin-restaurant')

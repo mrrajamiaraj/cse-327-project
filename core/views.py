@@ -69,26 +69,74 @@ class RegisterView(APIView):
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
+    def get_client_ip(self, request):
+        """Get client IP address from request"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+
+    def get_user_agent(self, request):
+        """Get user agent from request"""
+        return request.META.get('HTTP_USER_AGENT', '')
+
     def post(self, request):
         email = request.data.get("email")
         password = request.data.get("password")
+        
+        # Get client info for logging
+        ip_address = self.get_client_ip(request)
+        user_agent = self.get_user_agent(request)
 
         # Validate required fields
         if not email or not password:
+            # Log failed attempt (no user to associate with)
             return Response({"error": "Email and password required"}, status=400)
+
+        # Try to find user first for logging purposes
+        try:
+            user_for_logging = User.objects.get(email=email)
+        except User.DoesNotExist:
+            user_for_logging = None
 
         # Authenticate user
         user = authenticate(username=email, password=password)
         if user:
+            # Successful login
             refresh = RefreshToken.for_user(user)
+            
+            # Log successful login
+            LoginLog.objects.create(
+                user=user,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                success=True,
+                session_key=request.session.session_key
+            )
+            
             return Response({
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
                 'user': UserSerializer(user).data
             })
-        
-        # Return generic error for security (prevents user enumeration)
-        return Response({'error': 'Invalid credentials'}, status=401)
+        else:
+            # Failed login
+            failure_reason = "Invalid credentials"
+            
+            # Log failed attempt if we found the user (wrong password)
+            if user_for_logging:
+                LoginLog.objects.create(
+                    user=user_for_logging,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    success=False,
+                    failure_reason=failure_reason
+                )
+            
+            # Return generic error for security (prevents user enumeration)
+            return Response({'error': 'Invalid credentials'}, status=401)
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -854,4 +902,68 @@ class AdminRevenueView(APIView):
         # Mock for Figma
         charts = {'line': [100, 200, 300, 400]}
         return Response({'charts': charts})
+
+
+class LoginLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """API endpoint for viewing login logs (admin only)"""
+    serializer_class = LoginLogSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        # Only allow admin users to view login logs
+        if self.request.user.role != 'admin':
+            return LoginLog.objects.none()
+        
+        queryset = LoginLog.objects.select_related('user').order_by('-login_time')
+        
+        # Filter by user if specified
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+        
+        # Filter by success status
+        success = self.request.query_params.get('success')
+        if success is not None:
+            queryset = queryset.filter(success=success.lower() == 'true')
+        
+        # Filter by date range
+        from_date = self.request.query_params.get('from_date')
+        to_date = self.request.query_params.get('to_date')
+        if from_date:
+            queryset = queryset.filter(login_time__date__gte=from_date)
+        if to_date:
+            queryset = queryset.filter(login_time__date__lte=to_date)
+            
+        return queryset
+    
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get login statistics"""
+        if request.user.role != 'admin':
+            return Response({'error': 'Admin access required'}, status=403)
+        
+        from django.db.models import Count
+        from datetime import datetime, timedelta
+        
+        # Get stats for the last 30 days
+        thirty_days_ago = datetime.now() - timedelta(days=30)
+        
+        stats = {
+            'total_logins': LoginLog.objects.count(),
+            'successful_logins': LoginLog.objects.filter(success=True).count(),
+            'failed_logins': LoginLog.objects.filter(success=False).count(),
+            'recent_logins': LoginLog.objects.filter(login_time__gte=thirty_days_ago).count(),
+            'logins_by_role': list(
+                LoginLog.objects.filter(success=True)
+                .values('user__role')
+                .annotate(count=Count('id'))
+                .order_by('-count')
+            ),
+            'recent_failed_attempts': LoginLog.objects.filter(
+                success=False, 
+                login_time__gte=thirty_days_ago
+            ).count()
+        }
+        
+        return Response(stats)
 

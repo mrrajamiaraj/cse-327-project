@@ -251,3 +251,16 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = WithdrawalRequest
         fields = ['id', 'restaurant_name', 'amount', 'payment_method', 'payment_details', 'status', 'requested_at', 'processed_at', 'notes']
+
+class LoginLogSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_role = serializers.CharField(source='user.role', read_only=True)
+    browser_info = serializers.CharField(read_only=True)
+    device_type = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = LoginLog
+        fields = [
+            'id', 'user_email', 'user_role', 'login_time', 'ip_address', 
+            'success', 'failure_reason', 'browser_info', 'device_type'
+        ]
