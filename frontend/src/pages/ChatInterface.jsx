@@ -8,7 +8,6 @@ export default function ChatInterface() {
   const { orderId } = useParams();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const [orderInfo, setOrderInfo] = useState(null);
@@ -36,7 +35,6 @@ export default function ChatInterface() {
 
   const fetchChatData = async (user = currentUser) => {
     try {
-      setLoading(true);
       
       // Determine API path based on user role
       const apiPath = user?.role === 'restaurant' ? 'restaurant' : 'customer';
@@ -59,8 +57,6 @@ export default function ChatInterface() {
       } else if (error.response?.status === 404) {
         setError("Order not found");
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -132,21 +128,6 @@ export default function ChatInterface() {
     }
     return user.email;
   };
-
-  if (loading) {
-    return (
-      <div style={pageWrap}>
-        <div style={{ width: "100%", maxWidth: 360 }}>
-          <div style={pageTitle}>Chat</div>
-          <div style={{...phoneCard, display: "flex", alignItems: "center", justifyContent: "center"}}>
-            <div style={{ textAlign: "center", color: "#666" }}>
-              Loading chat...
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (

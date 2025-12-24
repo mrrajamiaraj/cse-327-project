@@ -45,7 +45,6 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -63,7 +62,6 @@ export default function Signup() {
       return;
     }
 
-    setLoading(true);
 
     try {
       const response = await api.post("auth/register/", {
@@ -94,8 +92,6 @@ export default function Signup() {
         err.response?.data?.detail ||
         "Signup failed. Please try again.";
       setError(msg);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -265,8 +261,7 @@ export default function Signup() {
 
             <button
               type="submit"
-              disabled={loading}
-              style={{
+                style={{
                 width: "100%",
                 padding: "12px",
                 borderRadius: 999,
@@ -275,11 +270,11 @@ export default function Signup() {
                 color: "#fff",
                 fontWeight: 600,
                 fontSize: "0.95rem",
-                cursor: loading ? "not-allowed" : "pointer",
+                cursor: "pointer",
                 opacity: loading ? 0.8 : 1,
               }}
             >
-              {loading ? "Creating Account..." : "SIGN UP"}
+              "SIGN UP"
             </button>
           </form>
 

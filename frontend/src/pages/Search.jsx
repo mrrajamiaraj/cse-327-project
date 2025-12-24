@@ -8,7 +8,6 @@ export default function Search() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState([]);
 
   // Load recent searches on mount
@@ -33,7 +32,6 @@ export default function Search() {
   }, [query]);
 
   const performSearch = async (searchTerm) => {
-    setLoading(true);
     try {
       const response = await api.get(`/customer/search/?q=${searchTerm}`);
       setResults(response.data.restaurants);
@@ -44,8 +42,6 @@ export default function Search() {
       }
     } catch (error) {
       console.error("Search failed:", error);
-    } finally {
-      setLoading(false);
     }
   };
 

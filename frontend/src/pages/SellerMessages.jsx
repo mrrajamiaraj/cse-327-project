@@ -6,7 +6,6 @@ const ORANGE = "#ff7a00";
 
 export default function SellerMessages() {
   const [messages, setMessages] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [messageCount, setMessageCount] = useState(0);
   const navigate = useNavigate();
@@ -17,7 +16,6 @@ export default function SellerMessages() {
 
   const fetchMessages = async () => {
     try {
-      setLoading(true);
       
       // Check if user is logged in and is a restaurant owner
       const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -109,8 +107,6 @@ export default function SellerMessages() {
         localStorage.clear();
         navigate("/login");
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -133,21 +129,6 @@ export default function SellerMessages() {
       hour12: false 
     });
   };
-
-  if (loading) {
-    return (
-      <div style={pageWrap}>
-        <div style={{ width: "100%", maxWidth: 360 }}>
-          <div style={pageTitle}>Messages</div>
-          <div style={{...phoneCard, display: "flex", alignItems: "center", justifyContent: "center"}}>
-            <div style={{ textAlign: "center", color: "#666" }}>
-              Loading messages...
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (

@@ -7,7 +7,6 @@ const ORANGE = "#ff7a00";
 export default function SellerReviews() {
   const navigate = useNavigate();
   const [reviews, setReviews] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -16,7 +15,6 @@ export default function SellerReviews() {
 
   const fetchReviews = async () => {
     try {
-      setLoading(true);
       
       // Check if user is logged in and is a restaurant owner
       const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -36,8 +34,6 @@ export default function SellerReviews() {
         localStorage.clear();
         navigate("/login");
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -53,21 +49,6 @@ export default function SellerReviews() {
     const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
     return fullName || user.email || "Customer";
   };
-
-  if (loading) {
-    return (
-      <div style={wrap}>
-        <div style={{ width: "100%", maxWidth: 360 }}>
-          <div style={title}>Review Screen</div>
-          <div style={{...card, display: "flex", alignItems: "center", justifyContent: "center"}}>
-            <div style={{ textAlign: "center", color: "#666" }}>
-              Loading reviews...
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (

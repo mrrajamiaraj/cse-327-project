@@ -640,13 +640,15 @@ class RestaurantAnalyticsView(APIView):
             orders = Order.objects.filter(restaurant=restaurant)
             
             # Calculate analytics
-            from datetime import date, timedelta
+            from datetime import date, timedelta, datetime
             from decimal import Decimal
+            from django.db.models import Sum, Count
+            from django.db.models.functions import TruncDate, TruncMonth, TruncYear
             
             today = date.today()
             
             # Daily revenue (today)
-            daily_orders = orders.filter(created_at__date=today)
+            daily_orders = orders.filter(created_at__date=today, status='delivered')
             daily_revenue = sum(order.total for order in daily_orders)
             
             # Total orders
@@ -671,6 +673,10 @@ class RestaurantAnalyticsView(APIView):
             # Recent reviews
             recent_reviews = reviews.order_by('-created_at')[:3]
             
+            # Chart data based on period
+            period = request.GET.get('period', 'daily')
+            chart_data = self.get_chart_data(restaurant, period)
+            
             return Response({
                 'daily_revenue': float(daily_revenue),
                 'total_orders': total_orders,
@@ -681,13 +687,159 @@ class RestaurantAnalyticsView(APIView):
                 'average_rating': round(float(avg_rating), 1),
                 'recent_reviews': ReviewSerializer(recent_reviews, many=True).data,
                 'restaurant_name': restaurant.name,
-                'restaurant_address': restaurant.address
+                'restaurant_address': restaurant.address,
+                'chart_data': chart_data
             })
             
         except Restaurant.DoesNotExist:
             return Response({'error': 'Restaurant not found'}, status=404)
         except Exception as e:
             return Response({'error': str(e)}, status=500)
+    
+    def get_chart_data(self, restaurant, period):
+        """Generate chart data based on period (daily, monthly, yearly)"""
+        from datetime import datetime, timedelta, date
+        from django.db.models import Sum
+        from calendar import monthrange
+        
+        orders = Order.objects.filter(restaurant=restaurant, status='delivered')
+        
+        if period == 'daily':
+            # Today's hourly data
+            today = date.today()
+            today_orders = orders.filter(created_at__date=today)
+            
+            # Calculate total earnings for today
+            total_today = sum(order.total for order in today_orders)
+            
+            # Generate hourly data for today (24 hours)
+            labels = []
+            values = []
+            
+            for hour in range(24):
+                hour_start = datetime.combine(today, datetime.min.time()) + timedelta(hours=hour)
+                hour_end = hour_start + timedelta(hours=1)
+                
+                hour_orders = today_orders.filter(
+                    created_at__gte=hour_start,
+                    created_at__lt=hour_end
+                )
+                hour_revenue = sum(order.total for order in hour_orders)
+                
+                # Format hour label
+                if hour == 0:
+                    label = "12AM"
+                elif hour < 12:
+                    label = f"{hour}AM"
+                elif hour == 12:
+                    label = "12PM"
+                else:
+                    label = f"{hour-12}PM"
+                
+                labels.append(label)
+                values.append(float(hour_revenue))
+            
+            return {
+                'labels': labels,
+                'values': values,
+                'period': 'Daily',
+                'total_revenue': float(total_today),
+                'max_value': max(values) if values else 0,
+                'description': f"Today's hourly earnings (Total: ৳{total_today})"
+            }
+            
+        elif period == 'monthly':
+            # Last 12 months data
+            now = datetime.now()
+            
+            # Get total for last 12 months
+            twelve_months_ago = datetime(now.year - 1, now.month, 1)
+            month_orders = orders.filter(created_at__gte=twelve_months_ago)
+            total_twelve_months = sum(order.total for order in month_orders)
+            
+            labels = []
+            values = []
+            month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            
+            # Generate data for last 12 months
+            for i in range(12):
+                # Calculate the month (going backwards from current month)
+                target_month = now.month - i
+                target_year = now.year
+                
+                if target_month <= 0:
+                    target_month += 12
+                    target_year -= 1
+                
+                # Get start and end of the month
+                month_start = datetime(target_year, target_month, 1)
+                if target_month == 12:
+                    month_end = datetime(target_year + 1, 1, 1)
+                else:
+                    month_end = datetime(target_year, target_month + 1, 1)
+                
+                # Get orders for this month
+                month_revenue_orders = month_orders.filter(
+                    created_at__gte=month_start,
+                    created_at__lt=month_end
+                )
+                month_revenue = sum(order.total for order in month_revenue_orders)
+                
+                # Add to beginning of lists (so we show oldest to newest)
+                labels.insert(0, month_names[target_month - 1])
+                values.insert(0, float(month_revenue))
+            
+            return {
+                'labels': labels,
+                'values': values,
+                'period': 'Monthly',
+                'total_revenue': float(total_twelve_months),
+                'max_value': max(values) if values else 0,
+                'description': f"Last 12 months earnings (Total: ৳{total_twelve_months})"
+            }
+            
+        elif period == 'yearly':
+            # Current year's monthly data
+            current_year = datetime.now().year
+            year_start = datetime(current_year, 1, 1)
+            
+            # Get total for current year
+            year_orders = orders.filter(created_at__gte=year_start)
+            total_year = sum(order.total for order in year_orders)
+            
+            labels = []
+            values = []
+            month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            
+            for month in range(1, 13):
+                month_start = datetime(current_year, month, 1)
+                if month == 12:
+                    month_end = datetime(current_year + 1, 1, 1)
+                else:
+                    month_end = datetime(current_year, month + 1, 1)
+                
+                month_orders = year_orders.filter(
+                    created_at__gte=month_start,
+                    created_at__lt=month_end
+                )
+                month_revenue = sum(order.total for order in month_orders)
+                
+                labels.append(month_names[month - 1])
+                values.append(float(month_revenue))
+            
+            return {
+                'labels': labels,
+                'values': values,
+                'period': 'Yearly',
+                'total_revenue': float(total_year),
+                'max_value': max(values) if values else 0,
+                'description': f"This year's monthly earnings (Total: ৳{total_year})"
+            }
+        
+        # Default to daily if invalid period
+        return self.get_chart_data(restaurant, 'daily')
 
 
 class RestaurantEarningsView(APIView):

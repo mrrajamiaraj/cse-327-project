@@ -7,7 +7,6 @@ const ORANGE = "#ff7a00";
 export default function WithdrawHistory() {
   const navigate = useNavigate();
   const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -16,7 +15,6 @@ export default function WithdrawHistory() {
 
   const fetchWithdrawHistory = async () => {
     try {
-      setLoading(true);
       
       // Check if user is logged in and is a restaurant owner
       const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -36,8 +34,6 @@ export default function WithdrawHistory() {
         localStorage.clear();
         navigate("/login");
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -64,21 +60,6 @@ export default function WithdrawHistory() {
     };
     return colors[status] || '#6c757d';
   };
-
-  if (loading) {
-    return (
-      <div style={wrap}>
-        <div style={{ width: "100%", maxWidth: 360 }}>
-          <div style={title}>Withdrawal History</div>
-          <div style={{...card, display: "flex", alignItems: "center", justifyContent: "center"}}>
-            <div style={{ textAlign: "center", color: "#666" }}>
-              Loading withdrawal history...
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (

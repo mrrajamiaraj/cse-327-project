@@ -4,7 +4,6 @@ const BkashPaymentGateway = ({ amount, onSuccess, onCancel, onError }) => {
   const [step, setStep] = useState("phone"); // phone, pin, confirm, processing, success
   const [phoneNumber, setPhoneNumber] = useState("");
   const [pin, setPin] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const formatPhoneNumber = (value) => {
@@ -44,7 +43,6 @@ const BkashPaymentGateway = ({ amount, onSuccess, onCancel, onError }) => {
   };
 
   const handleConfirmPayment = () => {
-    setLoading(true);
     setStep("processing");
     
     // Simulate payment processing
@@ -63,7 +61,6 @@ const BkashPaymentGateway = ({ amount, onSuccess, onCancel, onError }) => {
       } else {
         setError("Payment failed. Please try again.");
         setStep("confirm");
-        setLoading(false);
       }
     }, 3000);
   };
@@ -243,20 +240,19 @@ const BkashPaymentGateway = ({ amount, onSuccess, onCancel, onError }) => {
         </button>
         <button
           onClick={handleConfirmPayment}
-          disabled={loading}
           style={{
             flex: 2,
             padding: "12px",
-            backgroundColor: loading ? "#ccc" : "#e2136e",
+            backgroundColor: "#e2136e",
             color: "white",
             border: "none",
             borderRadius: "8px",
             fontSize: "1rem",
             fontWeight: "bold",
-            cursor: loading ? "not-allowed" : "pointer"
+            cursor: "pointer"
           }}
         >
-          {loading ? "PROCESSING..." : "PAY NOW"}
+          PAY NOW
         </button>
       </div>
     </div>

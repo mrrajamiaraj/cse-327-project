@@ -6,7 +6,6 @@ const ORANGE = "#ff7a00";
 
 export default function RunningOrders() {
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [stats, setStats] = useState({ runningOrders: 0, orderRequests: 0 });
   const navigate = useNavigate();
@@ -17,7 +16,6 @@ export default function RunningOrders() {
 
   const fetchRunningOrders = async () => {
     try {
-      setLoading(true);
       
       // Check if user is logged in and is a restaurant owner
       const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -52,8 +50,6 @@ export default function RunningOrders() {
         localStorage.clear();
         navigate("/login");
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -87,26 +83,6 @@ export default function RunningOrders() {
       alert(`Failed to ${action} order. Please try again.`);
     }
   };
-
-  if (loading) {
-    return (
-      <div style={{
-        width: "100vw",
-        minHeight: "100vh",
-        background: "#f3f3f3",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif'
-      }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "1.2rem", color: "#666", marginBottom: "10px" }}>
-            Loading Orders...
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (

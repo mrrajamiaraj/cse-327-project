@@ -149,7 +149,6 @@ export default function Payment() {
   };
 
   const processPayment = async (bkashData = null, cardData = null) => {
-    setLoading(true);
     try {
       let addressId = selectedAddress.id;
 
@@ -217,7 +216,6 @@ export default function Payment() {
       console.error("Error details:", error.response?.data);
       alert(`Payment failed: ${error.response?.data?.error || error.message}`);
     } finally {
-      setLoading(false);
     }
   };
 
@@ -640,7 +638,7 @@ export default function Payment() {
             fontSize: "0.9rem",
           }}
         >
-          {loading ? "PROCESSING..." : "PAY & CONFIRM"}
+          "PAY & CONFIRM"
         </button>
       </div>
 

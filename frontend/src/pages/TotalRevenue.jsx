@@ -14,7 +14,6 @@ export default function TotalRevenue() {
     dailyRevenue: 0,
     totalOrders: 0
   });
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -24,7 +23,6 @@ export default function TotalRevenue() {
 
   const fetchRevenueData = async () => {
     try {
-      setLoading(true);
       
       // Check if user is logged in and is a restaurant owner
       const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -60,8 +58,6 @@ export default function TotalRevenue() {
         localStorage.clear();
         navigate("/login");
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -73,21 +69,6 @@ export default function TotalRevenue() {
       amount: dailyRevenue * (20 + Math.random() * 10) // Simulate monthly variation
     }));
   };
-
-  if (loading) {
-    return (
-      <div style={pageWrap}>
-        <div style={{ width: "100%", maxWidth: 360 }}>
-          <div style={pageTitle}>Total Revenue</div>
-          <div style={{...phoneCard, display: "flex", alignItems: "center", justifyContent: "center"}}>
-            <div style={{ textAlign: "center", color: "#666" }}>
-              Loading revenue data...
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (

@@ -6,7 +6,6 @@ const ORANGE = "#ff7a00";
 
 export default function SellerNotifications() {
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -16,7 +15,6 @@ export default function SellerNotifications() {
 
   const fetchNotifications = async () => {
     try {
-      setLoading(true);
       
       // Check if user is logged in and is a restaurant owner
       const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -79,8 +77,6 @@ export default function SellerNotifications() {
         localStorage.clear();
         navigate("/login");
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -109,21 +105,6 @@ export default function SellerNotifications() {
     const diffInDays = Math.floor(diffInHours / 24);
     return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
   };
-
-  if (loading) {
-    return (
-      <div style={pageWrap}>
-        <div style={{ width: "100%", maxWidth: 360 }}>
-          <div style={pageTitle}>Notification</div>
-          <div style={{...phoneCard, display: "flex", alignItems: "center", justifyContent: "center"}}>
-            <div style={{ textAlign: "center", color: "#666" }}>
-              Loading notifications...
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (

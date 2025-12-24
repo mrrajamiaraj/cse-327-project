@@ -8,7 +8,6 @@ export default function Addresses() {
   const navigate = useNavigate();
   const [addresses, setAddresses] = useState([]);
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Get current session location from sessionStorage (NOT from database)
@@ -26,8 +25,6 @@ export default function Addresses() {
       setAddresses(response.data);
     } catch (error) {
       console.error("Error fetching addresses:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -56,14 +53,6 @@ export default function Addresses() {
     };
     return icons[label] || icons['Other'];
   };
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        Loading...
-      </div>
-    );
-  }
 
   return (
     <div
