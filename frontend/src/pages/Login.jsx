@@ -42,13 +42,11 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
     try {
       const response = await api.post("auth/login/", { email, password });
@@ -81,8 +79,6 @@ export default function Login() {
     } catch (err) {
       const msg = err.response?.data?.error || "Invalid credentials. Please try again.";
       setError(msg);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -194,8 +190,7 @@ export default function Login() {
             {/* Log in button */}
             <button
               type="submit"
-              disabled={loading}
-              style={{
+                style={{
                 marginTop: 10,
                 width: "100%",
                 padding: "12px",
@@ -205,11 +200,11 @@ export default function Login() {
                 color: "#fff",
                 fontWeight: 600,
                 fontSize: "0.95rem",
-                cursor: loading ? "not-allowed" : "pointer",
-                opacity: loading ? 0.8 : 1,
+                cursor: "pointer",
+                opacity: 1,
               }}
             >
-              {loading ? "Logging In..." : "LOG IN"}
+              "LOG IN"
             </button>
           </form>
 

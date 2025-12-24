@@ -11,7 +11,7 @@ def test_seller_dashboard_apis():
     # Login as restaurant user
     login_data = {
         "email": "restaurant@gmail.com",
-        "password": "restaurantchalai"
+        "password": "pass1234"
     }
     
     try:

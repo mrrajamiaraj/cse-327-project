@@ -8,7 +8,6 @@ export default function Cart() {
   const navigate = useNavigate();
 
   const [cartData, setCartData] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
@@ -55,8 +54,6 @@ export default function Cart() {
     } catch (error) {
       console.error("Error fetching cart:", error);
       console.error("Error details:", error.response?.data);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -103,14 +100,6 @@ export default function Cart() {
     }
     navigate("/payment", { state: { total: cartData.total } });
   };
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#222' }}>
-        Loading cart...
-      </div>
-    );
-  }
 
   const items = cartData?.items || [];
   const subtotal = cartData?.subtotal || 0;

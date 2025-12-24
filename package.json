@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start:frontend": "vite",
+    "start:backend": "cd .. && python manage.py runserver",
+    "start:both": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "dev:full": "concurrently \"cd .. && python manage.py runserver\" \"vite\""
   },
   "dependencies": {
     "react": "^18.3.1",

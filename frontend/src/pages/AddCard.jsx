@@ -16,7 +16,6 @@ export default function AddCard() {
   const [number, setNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvc, setCvc] = useState("");
-  const [loading, setLoading] = useState(false);
   const [detectedCardType, setDetectedCardType] = useState("");
 
   const handleSubmit = async (e) => {
@@ -63,7 +62,6 @@ export default function AddCard() {
       return;
     }
 
-    setLoading(true);
     try {
       // Use the already detected card type
       const cardType = detectedCardType || getCardType(cleanNumber);
@@ -111,7 +109,6 @@ export default function AddCard() {
       
       alert(errorMessage);
     } finally {
-      setLoading(false);
     }
   };
 
@@ -320,21 +317,20 @@ export default function AddCard() {
           {/* ADD & MAKE PAYMENT button */}
           <button
             type="submit"
-            disabled={loading}
             style={{
               marginTop: 8,
               width: "100%",
               padding: "11px 0",
               borderRadius: 10,
               border: "none",
-              background: loading ? "#ccc" : ORANGE,
+              background: ORANGE,
               color: "#fff",
               fontWeight: 700,
-              cursor: loading ? "not-allowed" : "pointer",
+              cursor: "pointer",
               fontSize: "0.9rem",
             }}
           >
-            {loading ? "ADDING CARD..." : "ADD CARD"}
+            "ADD CARD"
           </button>
         </form>
       </div>

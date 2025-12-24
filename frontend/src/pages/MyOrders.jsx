@@ -6,7 +6,6 @@ const ORANGE = "#ff7a00";
 
 export default function MyOrders() {
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -16,7 +15,6 @@ export default function MyOrders() {
 
   const fetchOrders = async () => {
     try {
-      setLoading(true);
       
       // Check if user is logged in
       const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -26,7 +24,7 @@ export default function MyOrders() {
       }
 
       // Fetch customer orders
-      const response = await api.get('/orders/');
+      const response = await api.get('/customer/orders/');
       setOrders(response.data.results || response.data);
       
     } catch (error) {
@@ -37,8 +35,6 @@ export default function MyOrders() {
         localStorage.clear();
         navigate("/login");
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -79,21 +75,6 @@ export default function MyOrders() {
       minute: '2-digit'
     });
   };
-
-  if (loading) {
-    return (
-      <div style={pageWrap}>
-        <div style={{ width: "100%", maxWidth: 360 }}>
-          <div style={pageTitle}>My Orders</div>
-          <div style={{...phoneCard, display: "flex", alignItems: "center", justifyContent: "center"}}>
-            <div style={{ textAlign: "center", color: "#666" }}>
-              Loading orders...
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (error) {
     return (

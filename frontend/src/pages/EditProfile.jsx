@@ -17,7 +17,6 @@ export default function EditProfile() {
   });
   const [avatar, setAvatar] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -61,7 +60,6 @@ export default function EditProfile() {
       console.error("Error fetching profile:", error);
       setError("Failed to load profile data");
     } finally {
-      setLoading(false);
     }
   };
 
@@ -214,14 +212,6 @@ export default function EditProfile() {
       setSaving(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        Loading profile...
-      </div>
-    );
-  }
 
   return (
     <div
@@ -438,7 +428,7 @@ export default function EditProfile() {
               fontSize: "0.9rem",
             }}
           >
-            {saving ? "SAVING..." : "SAVE"}
+            SAVE
           </button>
         </form>
       </div>

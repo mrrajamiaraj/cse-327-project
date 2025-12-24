@@ -19,7 +19,6 @@ export default function HomeScreen() {
   const [categories, setCategories] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
   const [allRestaurants, setAllRestaurants] = useState([]); // Store all for filtering
-  const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false); // For menu dropdown
   const [userProfile, setUserProfile] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
@@ -59,8 +58,7 @@ export default function HomeScreen() {
       } catch (error) {
         console.error("Error fetching home data:", error);
       } finally {
-        setLoading(false);
-      }
+        }
     };
 
     const fetchProfile = async () => {
@@ -176,10 +174,6 @@ export default function HomeScreen() {
   const handleMenuClick = () => {
     navigate('/menu');
   };
-
-  if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>;
-  }
 
   return (
     <div

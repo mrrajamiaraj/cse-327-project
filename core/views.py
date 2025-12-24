@@ -69,26 +69,74 @@ class RegisterView(APIView):
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
+    def get_client_ip(self, request):
+        """Get client IP address from request"""
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR')
+        return ip
+
+    def get_user_agent(self, request):
+        """Get user agent from request"""
+        return request.META.get('HTTP_USER_AGENT', '')
+
     def post(self, request):
         email = request.data.get("email")
         password = request.data.get("password")
+        
+        # Get client info for logging
+        ip_address = self.get_client_ip(request)
+        user_agent = self.get_user_agent(request)
 
         # Validate required fields
         if not email or not password:
+            # Log failed attempt (no user to associate with)
             return Response({"error": "Email and password required"}, status=400)
+
+        # Try to find user first for logging purposes
+        try:
+            user_for_logging = User.objects.get(email=email)
+        except User.DoesNotExist:
+            user_for_logging = None
 
         # Authenticate user
         user = authenticate(username=email, password=password)
         if user:
+            # Successful login
             refresh = RefreshToken.for_user(user)
+            
+            # Log successful login
+            LoginLog.objects.create(
+                user=user,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                success=True,
+                session_key=request.session.session_key
+            )
+            
             return Response({
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
                 'user': UserSerializer(user).data
             })
-        
-        # Return generic error for security (prevents user enumeration)
-        return Response({'error': 'Invalid credentials'}, status=401)
+        else:
+            # Failed login
+            failure_reason = "Invalid credentials"
+            
+            # Log failed attempt if we found the user (wrong password)
+            if user_for_logging:
+                LoginLog.objects.create(
+                    user=user_for_logging,
+                    ip_address=ip_address,
+                    user_agent=user_agent,
+                    success=False,
+                    failure_reason=failure_reason
+                )
+            
+            # Return generic error for security (prevents user enumeration)
+            return Response({'error': 'Invalid credentials'}, status=401)
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -544,7 +592,19 @@ class RestaurantOrderViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Order.objects.filter(restaurant__owner=self.request.user)
+        # Add ordering and limit for better performance
+        queryset = Order.objects.filter(restaurant__owner=self.request.user).order_by('-created_at')
+        
+        # Add status filtering for dashboard efficiency
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            if status_filter == 'active':
+                # Only pending and running orders for dashboard
+                queryset = queryset.filter(status__in=['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery'])
+            else:
+                queryset = queryset.filter(status=status_filter)
+        
+        return queryset
 
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
@@ -588,25 +648,38 @@ class RestaurantAnalyticsView(APIView):
             # Get restaurant owned by current user
             restaurant = Restaurant.objects.get(owner=request.user)
             
-            # Get orders for this restaurant
-            orders = Order.objects.filter(restaurant=restaurant)
+            # Check cache first for faster response
+            from django.core.cache import cache
+            cache_key = f"restaurant_analytics_{restaurant.id}_{request.GET.get('period', 'daily')}"
+            cached_data = cache.get(cache_key)
+            
+            if cached_data:
+                return Response(cached_data)
+            
+            # Get orders for this restaurant (use select_related for better performance)
+            orders = Order.objects.filter(restaurant=restaurant).select_related('restaurant')
             
             # Calculate analytics
-            from datetime import date, timedelta
+            from datetime import date, timedelta, datetime
             from decimal import Decimal
+            from django.db.models import Sum, Count
+            from django.db.models.functions import TruncDate, TruncMonth, TruncYear
             
             today = date.today()
             
             # Daily revenue (today)
-            daily_orders = orders.filter(created_at__date=today)
+            daily_orders = orders.filter(created_at__date=today, status='delivered')
             daily_revenue = sum(order.total for order in daily_orders)
             
             # Total orders
             total_orders = orders.count()
             
-            # Running orders (pending, preparing, ready)
+            # Order Requests (new orders waiting for restaurant acceptance)
+            order_requests = orders.filter(status='pending').count()
+            
+            # Running orders (orders being actively processed)
             running_orders = orders.filter(
-                status__in=['pending', 'preparing', 'ready_for_pickup']
+                status__in=['preparing', 'ready_for_pickup', 'out_for_delivery']
             ).count()
             
             # Cancelled orders
@@ -623,9 +696,14 @@ class RestaurantAnalyticsView(APIView):
             # Recent reviews
             recent_reviews = reviews.order_by('-created_at')[:3]
             
-            return Response({
+            # Chart data based on period
+            period = request.GET.get('period', 'daily')
+            chart_data = self.get_chart_data(restaurant, period)
+            
+            response_data = {
                 'daily_revenue': float(daily_revenue),
                 'total_orders': total_orders,
+                'order_requests': order_requests,
                 'running_orders': running_orders,
                 'cancelled_orders': cancelled_orders,
                 'delivered_orders': delivered_orders,
@@ -633,13 +711,224 @@ class RestaurantAnalyticsView(APIView):
                 'average_rating': round(float(avg_rating), 1),
                 'recent_reviews': ReviewSerializer(recent_reviews, many=True).data,
                 'restaurant_name': restaurant.name,
-                'restaurant_address': restaurant.address
-            })
+                'restaurant_address': restaurant.address,
+                'restaurant_id': restaurant.id,  # Add restaurant ID for frontend
+                'chart_data': chart_data
+            }
+            
+            # Cache for 2 minutes to balance freshness and performance
+            cache.set(cache_key, response_data, 120)
+            
+            return Response(response_data)
             
         except Restaurant.DoesNotExist:
             return Response({'error': 'Restaurant not found'}, status=404)
         except Exception as e:
             return Response({'error': str(e)}, status=500)
+    
+    def get_chart_data(self, restaurant, period):
+        """Generate business-standard chart data based on period"""
+        from datetime import datetime, timedelta, date
+        from django.db.models import Sum
+        from calendar import monthrange
+        
+        orders = Order.objects.filter(restaurant=restaurant, status='delivered')
+        now = datetime.now()
+        
+        if period == 'daily':
+            # Last 7 days (business standard for daily view)
+            labels = []
+            values = []
+            order_counts = []
+            total_revenue = 0
+            
+            for i in range(6, -1, -1):  # 6 days ago to today
+                target_date = now.date() - timedelta(days=i)
+                day_start = datetime.combine(target_date, datetime.min.time())
+                day_end = day_start + timedelta(days=1)
+                
+                day_orders = orders.filter(
+                    created_at__gte=day_start,
+                    created_at__lt=day_end
+                )
+                day_revenue = sum(order.total for order in day_orders)
+                day_count = day_orders.count()
+                
+                # Format label (Mon, Tue, Wed, etc.)
+                if i == 0:
+                    label = "Today"
+                elif i == 1:
+                    label = "Yesterday"
+                else:
+                    label = target_date.strftime('%a')  # Mon, Tue, Wed
+                
+                labels.append(label)
+                values.append(float(day_revenue))
+                order_counts.append(day_count)
+                total_revenue += day_revenue
+            
+            return {
+                'labels': labels,
+                'values': values,
+                'order_counts': order_counts,
+                'period': 'Daily',
+                'period_description': 'Last 7 Days',
+                'total_revenue': float(total_revenue),
+                'max_value': max(values) if values else 0,
+                'avg_daily': float(total_revenue / 7),
+                'total_orders': sum(order_counts),
+                'avg_order_value': float(total_revenue / sum(order_counts)) if sum(order_counts) > 0 else 0,
+                'description': f"Revenue trend over the last 7 days"
+            }
+            
+        elif period == 'weekly':
+            # Last 8 weeks (business standard for weekly view)
+            labels = []
+            values = []
+            order_counts = []
+            total_revenue = 0
+            
+            for i in range(7, -1, -1):  # 7 weeks ago to this week
+                # Calculate week start (Monday) and end (Sunday)
+                days_since_monday = now.weekday()
+                current_week_start = now - timedelta(days=days_since_monday, weeks=i)
+                week_start = current_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+                week_end = week_start + timedelta(days=7)
+                
+                week_orders = orders.filter(
+                    created_at__gte=week_start,
+                    created_at__lt=week_end
+                )
+                week_revenue = sum(order.total for order in week_orders)
+                week_count = week_orders.count()
+                
+                # Format label
+                if i == 0:
+                    label = "This Week"
+                elif i == 1:
+                    label = "Last Week"
+                else:
+                    label = f"{week_start.strftime('%m/%d')}"
+                
+                labels.append(label)
+                values.append(float(week_revenue))
+                order_counts.append(week_count)
+                total_revenue += week_revenue
+            
+            return {
+                'labels': labels,
+                'values': values,
+                'order_counts': order_counts,
+                'period': 'Weekly',
+                'period_description': 'Last 8 Weeks',
+                'total_revenue': float(total_revenue),
+                'max_value': max(values) if values else 0,
+                'avg_weekly': float(total_revenue / 8),
+                'total_orders': sum(order_counts),
+                'avg_order_value': float(total_revenue / sum(order_counts)) if sum(order_counts) > 0 else 0,
+                'description': f"Revenue trend over the last 8 weeks"
+            }
+            
+        elif period == 'monthly':
+            # Last 12 months (business standard for monthly view)
+            labels = []
+            values = []
+            order_counts = []
+            total_revenue = 0
+            
+            for i in range(11, -1, -1):  # 11 months ago to this month
+                # Calculate month start and end
+                target_date = now.replace(day=1) - timedelta(days=32*i)
+                month_start = target_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                
+                if month_start.month == 12:
+                    month_end = month_start.replace(year=month_start.year + 1, month=1)
+                else:
+                    month_end = month_start.replace(month=month_start.month + 1)
+                
+                month_orders = orders.filter(
+                    created_at__gte=month_start,
+                    created_at__lt=month_end
+                )
+                month_revenue = sum(order.total for order in month_orders)
+                month_count = month_orders.count()
+                
+                # Format label
+                if i == 0:
+                    label = "This Month"
+                elif i == 1:
+                    label = "Last Month"
+                else:
+                    label = month_start.strftime('%b %y')  # Jan 25, Feb 25, etc.
+                
+                labels.append(label)
+                values.append(float(month_revenue))
+                order_counts.append(month_count)
+                total_revenue += month_revenue
+            
+            return {
+                'labels': labels,
+                'values': values,
+                'order_counts': order_counts,
+                'period': 'Monthly',
+                'period_description': 'Last 12 Months',
+                'total_revenue': float(total_revenue),
+                'max_value': max(values) if values else 0,
+                'avg_monthly': float(total_revenue / 12),
+                'total_orders': sum(order_counts),
+                'avg_order_value': float(total_revenue / sum(order_counts)) if sum(order_counts) > 0 else 0,
+                'description': f"Revenue trend over the last 12 months"
+            }
+            
+        elif period == 'yearly':
+            # Last 5 years (business standard for yearly view)
+            labels = []
+            values = []
+            order_counts = []
+            total_revenue = 0
+            
+            current_year = now.year
+            for i in range(4, -1, -1):  # 4 years ago to this year
+                target_year = current_year - i
+                year_start = datetime(target_year, 1, 1)
+                year_end = datetime(target_year + 1, 1, 1)
+                
+                year_orders = orders.filter(
+                    created_at__gte=year_start,
+                    created_at__lt=year_end
+                )
+                year_revenue = sum(order.total for order in year_orders)
+                year_count = year_orders.count()
+                
+                # Format label
+                if i == 0:
+                    label = "This Year"
+                elif i == 1:
+                    label = "Last Year"
+                else:
+                    label = str(target_year)
+                
+                labels.append(label)
+                values.append(float(year_revenue))
+                order_counts.append(year_count)
+                total_revenue += year_revenue
+            
+            return {
+                'labels': labels,
+                'values': values,
+                'order_counts': order_counts,
+                'period': 'Yearly',
+                'period_description': 'Last 5 Years',
+                'total_revenue': float(total_revenue),
+                'max_value': max(values) if values else 0,
+                'avg_yearly': float(total_revenue / 5),
+                'total_orders': sum(order_counts),
+                'avg_order_value': float(total_revenue / sum(order_counts)) if sum(order_counts) > 0 else 0,
+                'description': f"Revenue trend over the last 5 years"
+            }
+        
+        # Default to daily if invalid period
+        return self.get_chart_data(restaurant, 'daily')
 
 
 class RestaurantEarningsView(APIView):
@@ -669,12 +958,198 @@ class RestaurantEarningsView(APIView):
             for order in delivered_orders:
                 earnings.add_earnings(order.total)
 
+        # Get additional revenue analytics using the same logic as dashboard
+        from datetime import datetime, timedelta
+        from django.db.models import Sum
+        from decimal import Decimal
+        
+        # Get orders for calculations
+        orders = Order.objects.filter(restaurant=restaurant, status='delivered')
+        now = datetime.now()
+        
+        # Daily revenue data (last 7 days)
+        daily_data = []
+        for i in range(6, -1, -1):  # 6 days ago to today
+            target_date = now.date() - timedelta(days=i)
+            day_start = datetime.combine(target_date, datetime.min.time())
+            day_end = day_start + timedelta(days=1)
+            
+            day_orders = orders.filter(
+                created_at__gte=day_start,
+                created_at__lt=day_end
+            )
+            day_revenue = sum(order.total for order in day_orders)
+            day_commission = (day_revenue * earnings.commission_rate) / 100
+            day_net_revenue = day_revenue - day_commission
+            
+            if i == 0:
+                label = "Today"
+            elif i == 1:
+                label = "Yesterday"
+            else:
+                label = target_date.strftime('%a')  # Mon, Tue, Wed
+            
+            daily_data.append({
+                'day': label,
+                'date': target_date.strftime('%Y-%m-%d'),
+                'gross_revenue': float(day_revenue),
+                'commission': float(day_commission),
+                'net_revenue': float(day_net_revenue),
+                'orders_count': day_orders.count()
+            })
+        
+        # Yearly data (last 5 years)
+        yearly_data = []
+        current_year = now.year
+        for i in range(4, -1, -1):  # 4 years ago to this year
+            target_year = current_year - i
+            year_start = datetime(target_year, 1, 1)
+            year_end = datetime(target_year + 1, 1, 1)
+            
+            year_orders = orders.filter(
+                created_at__gte=year_start,
+                created_at__lt=year_end
+            )
+            year_revenue = sum(order.total for order in year_orders)
+            year_commission = (year_revenue * earnings.commission_rate) / 100
+            year_net_revenue = year_revenue - year_commission
+            
+            if i == 0:
+                label = "This Year"
+            elif i == 1:
+                label = "Last Year"
+            else:
+                label = str(target_year)
+            
+            yearly_data.append({
+                'year': label,
+                'year_number': target_year,
+                'gross_revenue': float(year_revenue),
+                'commission': float(year_commission),
+                'net_revenue': float(year_net_revenue),
+                'orders_count': year_orders.count()
+            })
+        
+        # Daily revenue (today)
+        today = datetime.now().date()
+        today_orders = orders.filter(created_at__date=today)
+        daily_revenue = sum(order.total for order in today_orders)
+        daily_commission = (daily_revenue * earnings.commission_rate) / 100
+        daily_net_revenue = daily_revenue - daily_commission
+        
+        # Monthly revenue data (last 6 months including current month)
+        monthly_data = []
+        current_date = datetime.now()
+        
+        for i in range(6):
+            if i == 0:
+                # Current month: from 1st of this month to end of today
+                month_start = current_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                month_end = current_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+            else:
+                # Previous months: full months
+                # Go back i months
+                year = current_date.year
+                month = current_date.month - i
+                
+                if month <= 0:
+                    month += 12
+                    year -= 1
+                
+                month_start = datetime(year, month, 1, 0, 0, 0, 0)
+                
+                # Get last day of the month
+                if month == 12:
+                    month_end = datetime(year + 1, 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
+                else:
+                    month_end = datetime(year, month + 1, 1, 0, 0, 0, 0) - timedelta(microseconds=1)
+            
+            # Get orders for this month
+            month_orders = orders.filter(
+                created_at__gte=month_start,
+                created_at__lte=month_end
+            )
+            month_revenue = sum(order.total for order in month_orders)
+            month_commission = (month_revenue * earnings.commission_rate) / 100
+            month_net_revenue = month_revenue - month_commission
+            
+            monthly_data.insert(0, {  # Insert at beginning to get chronological order
+                'month': month_start.strftime('%b'),
+                'month_year': month_start.strftime('%b %Y'),
+                'gross_revenue': float(month_revenue),
+                'commission': float(month_commission),
+                'net_revenue': float(month_net_revenue),
+                'orders_count': month_orders.count()
+            })
+        
+        # Weekly revenue (last 4 weeks including current week)
+        weekly_data = []
+        current_date = datetime.now()
+        
+        for i in range(4):
+            if i == 0:
+                # Current week: from Monday of this week to end of today
+                days_since_monday = current_date.weekday()
+                week_start = current_date - timedelta(days=days_since_monday)
+                week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+                week_end = current_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+            else:
+                # Previous weeks: full 7-day periods
+                week_end_date = current_date - timedelta(days=7 * i)
+                week_start_date = week_end_date - timedelta(days=6)  # 7 days total
+                
+                week_start = week_start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                week_end = week_end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+            
+            week_orders = orders.filter(
+                created_at__gte=week_start,
+                created_at__lte=week_end
+            )
+            week_revenue = sum(order.total for order in week_orders)
+            week_commission = (week_revenue * earnings.commission_rate) / 100
+            week_net_revenue = week_revenue - week_commission
+            
+            weekly_data.insert(0, {
+                'week': f"Week {4-i}",
+                'week_period': f"{week_start.strftime('%m/%d')} - {week_end.strftime('%m/%d')}",
+                'gross_revenue': float(week_revenue),
+                'commission': float(week_commission),
+                'net_revenue': float(week_net_revenue),
+                'orders_count': week_orders.count()
+            })
+        
+        # Total statistics
+        total_orders = orders.count()
+        total_gross_revenue = sum(order.total for order in orders)
+        total_commission = (total_gross_revenue * earnings.commission_rate) / 100
+        
+        # Average order value
+        avg_order_value = total_gross_revenue / total_orders if total_orders > 0 else 0
+
         return Response({
             'total_earnings': float(earnings.total_earnings),
             'available_balance': float(earnings.available_balance),
             'pending_balance': float(earnings.pending_balance),
             'total_withdrawn': float(earnings.total_withdrawn),
-            'commission_rate': float(earnings.commission_rate)
+            'commission_rate': float(earnings.commission_rate),
+            
+            # Additional analytics
+            'daily_revenue': {
+                'gross': float(daily_revenue),
+                'commission': float(daily_commission),
+                'net': float(daily_net_revenue)
+            },
+            'total_statistics': {
+                'total_orders': total_orders,
+                'total_gross_revenue': float(total_gross_revenue),
+                'total_commission': float(total_commission),
+                'average_order_value': float(avg_order_value)
+            },
+            'monthly_data': monthly_data,
+            'weekly_data': weekly_data,
+            'daily_data': daily_data,  # Add daily data for charts
+            'yearly_data': yearly_data,  # Add yearly data for charts
+            'restaurant_name': restaurant.name
         })
 
 
@@ -733,7 +1208,7 @@ class RestaurantReviewViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Review.objects.filter(order__restaurant__owner=self.request.user)ner=self.request.user)
+        return Review.objects.filter(order__restaurant__owner=self.request.user)
 
 # Rider
 class RiderAvailabilityView(APIView):
@@ -854,4 +1329,68 @@ class AdminRevenueView(APIView):
         # Mock for Figma
         charts = {'line': [100, 200, 300, 400]}
         return Response({'charts': charts})
+
+
+class LoginLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """API endpoint for viewing login logs (admin only)"""
+    serializer_class = LoginLogSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        # Only allow admin users to view login logs
+        if self.request.user.role != 'admin':
+            return LoginLog.objects.none()
+        
+        queryset = LoginLog.objects.select_related('user').order_by('-login_time')
+        
+        # Filter by user if specified
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+        
+        # Filter by success status
+        success = self.request.query_params.get('success')
+        if success is not None:
+            queryset = queryset.filter(success=success.lower() == 'true')
+        
+        # Filter by date range
+        from_date = self.request.query_params.get('from_date')
+        to_date = self.request.query_params.get('to_date')
+        if from_date:
+            queryset = queryset.filter(login_time__date__gte=from_date)
+        if to_date:
+            queryset = queryset.filter(login_time__date__lte=to_date)
+            
+        return queryset
+    
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Get login statistics"""
+        if request.user.role != 'admin':
+            return Response({'error': 'Admin access required'}, status=403)
+        
+        from django.db.models import Count
+        from datetime import datetime, timedelta
+        
+        # Get stats for the last 30 days
+        thirty_days_ago = datetime.now() - timedelta(days=30)
+        
+        stats = {
+            'total_logins': LoginLog.objects.count(),
+            'successful_logins': LoginLog.objects.filter(success=True).count(),
+            'failed_logins': LoginLog.objects.filter(success=False).count(),
+            'recent_logins': LoginLog.objects.filter(login_time__gte=thirty_days_ago).count(),
+            'logins_by_role': list(
+                LoginLog.objects.filter(success=True)
+                .values('user__role')
+                .annotate(count=Count('id'))
+                .order_by('-count')
+            ),
+            'recent_failed_attempts': LoginLog.objects.filter(
+                success=False, 
+                login_time__gte=thirty_days_ago
+            ).count()
+        }
+        
+        return Response(stats)
 

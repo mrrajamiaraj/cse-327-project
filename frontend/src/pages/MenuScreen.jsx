@@ -8,7 +8,6 @@ const ORANGE = "#ff7a00";
 export default function MenuScreen() {
   const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -22,8 +21,7 @@ export default function MenuScreen() {
       } catch (error) {
         console.error("Error fetching profile:", error);
       } finally {
-        setLoading(false);
-      }
+        }
     };
     fetchProfile();
   }, []);
@@ -37,14 +35,6 @@ export default function MenuScreen() {
   // you can add more later, e.g.:
   // else if (item.label === "Cart") navigate("/cart");
 };
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        Loading...
-      </div>
-    );
-  }
 
   return (
     <div

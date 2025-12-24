@@ -23,7 +23,6 @@ export default function AddAddress() {
   const [postCode, setPostCode] = useState("");
   const [apartment, setApartment] = useState("");
   const [label, setLabel] = useState("Home");
-  const [loading, setLoading] = useState(false);
 
   // map center (default: NSU)
   const [coords, setCoords] = useState({
@@ -78,7 +77,6 @@ export default function AddAddress() {
       return;
     }
 
-    setLoading(true);
     
     // Combine all address fields with a special separator to preserve empty fields
     // Format: address|||street|||apartment|||postCode
@@ -107,7 +105,6 @@ export default function AddAddress() {
       console.error("Error saving address:", error);
       alert("Failed to save address. Please try again.");
     } finally {
-      setLoading(false);
     }
   };
 
@@ -196,7 +193,7 @@ export default function AddAddress() {
                 fontSize: "0.85rem",
               }}
             >
-              Loading map...
+              Map Loading
             </div>
           )}
 
@@ -357,22 +354,20 @@ export default function AddAddress() {
           {/* SAVE LOCATION button */}
           <button
             type="submit"
-            disabled={loading}
             style={{
               width: "100%",
               padding: "14px 0",
               borderRadius: 12,
               border: "none",
-              background: loading ? "#ccc" : ORANGE,
+              background: ORANGE,
               color: "#fff",
               fontWeight: 700,
-              cursor: loading ? "not-allowed" : "pointer",
+              cursor: "pointer",
               fontSize: "0.95rem",
-              boxShadow: loading ? "none" : "0 4px 12px rgba(255,122,0,0.3)",
               transition: "all 0.2s ease",
             }}
           >
-            {loading ? "SAVING..." : editAddress ? "✓ UPDATE ADDRESS" : "✓ SAVE ADDRESS"}
+editAddress ? "✓ UPDATE ADDRESS" : "✓ SAVE ADDRESS"
           </button>
         </form>
       </div>

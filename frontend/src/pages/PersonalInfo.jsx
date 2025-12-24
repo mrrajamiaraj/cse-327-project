@@ -5,7 +5,6 @@ import api from "../services/api";
 export default function PersonalInfo() {
   const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -19,19 +18,10 @@ export default function PersonalInfo() {
       } catch (error) {
         console.error("Error fetching profile:", error);
       } finally {
-        setLoading(false);
-      }
+        }
     };
     fetchProfile();
   }, []);
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        Loading...
-      </div>
-    );
-  }
 
   return (
     <div

@@ -271,3 +271,44 @@ class OrderChatMessageAdmin(admin.ModelAdmin):
                 f"Valid participants are: {', '.join([u.email for u in valid_senders if u])}")
         
         super().save_model(request, obj, form, change)
+
+
+@admin.register(LoginLog)
+class LoginLogAdmin(admin.ModelAdmin):
+    list_display = ['user_display', 'login_time', 'success_status', 'ip_address', 'browser_info', 'device_type']
+    list_filter = ['success', 'login_time', 'user__role']
+    search_fields = ['user__email', 'user__first_name', 'user__last_name', 'ip_address']
+    readonly_fields = ['login_time', 'user_agent']
+    raw_id_fields = ['user']
+    date_hierarchy = 'login_time'
+    
+    def user_display(self, obj):
+        role_icons = {
+            'customer': '👤',
+            'restaurant': '🏪', 
+            'rider': '🚴',
+            'admin': '👑'
+        }
+        icon = role_icons.get(obj.user.role, '👤')
+        return f"{icon} {obj.user.email} ({obj.user.role.title()})"
+    user_display.short_description = "User"
+    
+    def success_status(self, obj):
+        if obj.success:
+            return "✅ Success"
+        else:
+            return f"❌ Failed ({obj.failure_reason or 'Unknown reason'})"
+    success_status.short_description = "Status"
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user')
+    
+    fieldsets = (
+        ('Login Details', {
+            'fields': ('user', 'login_time', 'success', 'failure_reason')
+        }),
+        ('Technical Details', {
+            'fields': ('ip_address', 'user_agent', 'session_key'),
+            'classes': ('collapse',)
+        }),
+    )

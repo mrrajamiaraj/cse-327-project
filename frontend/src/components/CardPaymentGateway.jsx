@@ -5,7 +5,6 @@ const CardPaymentGateway = ({ amount, cardType, cardDetails, onSuccess, onCancel
   const [step, setStep] = useState("details"); // details, processing, otp, success
   const [cvv, setCvv] = useState("");
   const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const isVisa = cardType === "Visa";
@@ -21,12 +20,10 @@ const CardPaymentGateway = ({ amount, cardType, cardDetails, onSuccess, onCancel
       return;
     }
     setError("");
-    setLoading(true);
     setStep("processing");
     
     // Simulate bank processing
     setTimeout(() => {
-      setLoading(false);
       setStep("otp");
     }, 2000);
   };
@@ -37,7 +34,6 @@ const CardPaymentGateway = ({ amount, cardType, cardDetails, onSuccess, onCancel
       return;
     }
     setError("");
-    setLoading(true);
     setStep("processing");
     
     // Simulate OTP verification
@@ -57,8 +53,7 @@ const CardPaymentGateway = ({ amount, cardType, cardDetails, onSuccess, onCancel
       } else {
         setError("Payment failed. Please try again.");
         setStep("otp");
-        setLoading(false);
-      }
+        }
     }, 3000);
   };
 
@@ -271,20 +266,19 @@ const CardPaymentGateway = ({ amount, cardType, cardDetails, onSuccess, onCancel
         </button>
         <button
           onClick={handleOtpSubmit}
-          disabled={loading}
           style={{
             flex: 2,
             padding: "12px",
-            backgroundColor: loading ? "#ccc" : brandColor,
+            backgroundColor: brandColor,
             color: "white",
             border: "none",
             borderRadius: "8px",
             fontSize: "1rem",
             fontWeight: "bold",
-            cursor: loading ? "not-allowed" : "pointer"
+            cursor: "pointer"
           }}
         >
-          {loading ? "VERIFYING..." : "VERIFY & PAY"}
+"VERIFY & PAY"
         </button>
       </div>
 

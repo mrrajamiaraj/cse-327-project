@@ -17,15 +17,13 @@ export default function RestaurantView() {
   const [foodItems, setFoodItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("All");
-  const [loading, setLoading] = useState(true);
   const [quantities, setQuantities] = useState({}); // Track quantity for each food item
   const [expandedItems, setExpandedItems] = useState({}); // Track which items are expanded
 
   useEffect(() => {
     const fetchRestaurantData = async () => {
       if (!restaurant?.id) {
-        setLoading(false);
-        return;
+          return;
       }
 
       try {
@@ -44,8 +42,7 @@ export default function RestaurantView() {
       } catch (error) {
         console.error("Error fetching restaurant data:", error);
       } finally {
-        setLoading(false);
-      }
+        }
     };
 
     fetchRestaurantData();
@@ -106,14 +103,6 @@ export default function RestaurantView() {
       setQuantities(prev => ({ ...prev, [foodId]: 1 }));
     }
   };
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        Loading...
-      </div>
-    );
-  }
 
   return (
     <div

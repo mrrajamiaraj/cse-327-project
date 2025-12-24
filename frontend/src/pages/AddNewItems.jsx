@@ -14,7 +14,6 @@ export default function AddNewItems() {
   const [categories, setCategories] = useState([]);
   const [isVeg, setIsVeg] = useState(true);
   const [stockQuantity, setStockQuantity] = useState("50");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -45,8 +44,7 @@ export default function AddNewItems() {
     }
 
     try {
-      setLoading(true);
-      setError("");
+        setError("");
 
       const foodData = {
         name: itemName.trim(),
@@ -67,7 +65,6 @@ export default function AddNewItems() {
       console.error("Error saving food item:", error);
       setError(error.response?.data?.error || "Failed to save food item. Please try again.");
     } finally {
-      setLoading(false);
     }
   };
 
@@ -344,21 +341,20 @@ export default function AddNewItems() {
             {/* save button */}
             <button
               onClick={handleSave}
-              disabled={loading}
-              style={{
+                style={{
                 marginTop: 18,
                 width: "100%",
                 height: 46,
                 borderRadius: 12,
                 border: "none",
-                background: loading ? "#ccc" : ORANGE,
+                background: ORANGE,
                 color: "#fff",
                 fontWeight: 800,
-                cursor: loading ? "not-allowed" : "pointer",
+                cursor: "pointer",
                 fontSize: "0.85rem",
               }}
             >
-              {loading ? "SAVING..." : "SAVE FOOD ITEM"}
+              "SAVE FOOD ITEM"
             </button>
           </div>
         </div>

@@ -8,7 +8,6 @@ export default function Search() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState([]);
 
   // Load recent searches on mount
@@ -33,7 +32,6 @@ export default function Search() {
   }, [query]);
 
   const performSearch = async (searchTerm) => {
-    setLoading(true);
     try {
       const response = await api.get(`/customer/search/?q=${searchTerm}`);
       setResults(response.data.restaurants);
@@ -44,8 +42,6 @@ export default function Search() {
       }
     } catch (error) {
       console.error("Search failed:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -160,17 +156,14 @@ export default function Search() {
 
         {/* Results */}
         <section style={{ flex: 1 }}>
-          {loading ? (
-            <div style={{ textAlign: "center", padding: 20, color: "#999" }}>Searching...</div>
-          ) : (
-            <>
-              {query && (
-                <h3 style={{ fontSize: "0.9rem", marginBottom: 12, color: "#222" }}>
-                  {results.length > 0 ? `Results for "${query}"` : `No results for "${query}"`}
-                </h3>
-              )}
+          <>
+            {query && (
+              <h3 style={{ fontSize: "0.9rem", marginBottom: 12, color: "#222" }}>
+                {results.length > 0 ? `Results for "${query}"` : `No results for "${query}"`}
+              </h3>
+            )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {results.map((r) => (
                   <div key={r.id} onClick={() => handleRestaurantClick(r)} style={{ cursor: "pointer" }}>
                     <RestaurantCard restaurant={r} />
@@ -178,7 +171,6 @@ export default function Search() {
                 ))}
               </div>
             </>
-          )}
         </section>
       </div>
     </div>

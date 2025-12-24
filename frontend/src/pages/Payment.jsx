@@ -18,7 +18,6 @@ export default function Payment() {
   const [method, setMethod] = useState("Cash");
   const [cards, setCards] = useState([]);
   const [selectedCardId, setSelectedCardId] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [showBkashGateway, setShowBkashGateway] = useState(false);
   const [showCardGateway, setShowCardGateway] = useState(false);
@@ -149,7 +148,6 @@ export default function Payment() {
   };
 
   const processPayment = async (bkashData = null, cardData = null) => {
-    setLoading(true);
     try {
       let addressId = selectedAddress.id;
 
@@ -217,7 +215,6 @@ export default function Payment() {
       console.error("Error details:", error.response?.data);
       alert(`Payment failed: ${error.response?.data?.error || error.message}`);
     } finally {
-      setLoading(false);
     }
   };
 
@@ -623,24 +620,24 @@ export default function Payment() {
         {/* PAY & CONFIRM */}
         <button
           onClick={handleConfirm}
-          disabled={loading || !selectedAddress || (method === "Card" && !selectedCard)}
+          disabled={!selectedAddress || (method === "Card" && !selectedCard)}
           style={{
             width: "100%",
             padding: "11px 0",
             borderRadius: 10,
             border: "none",
-            background: (loading || !selectedAddress || (method === "Card" && !selectedCard))
+            background: (!selectedAddress || (method === "Card" && !selectedCard))
               ? "#ccc" 
               : ORANGE,
             color: "#fff",
             fontWeight: 700,
-            cursor: (loading || !selectedAddress || (method === "Card" && !selectedCard))
+            cursor: (!selectedAddress || (method === "Card" && !selectedCard))
               ? "not-allowed" 
               : "pointer",
             fontSize: "0.9rem",
           }}
         >
-          {loading ? "PROCESSING..." : "PAY & CONFIRM"}
+          "PAY & CONFIRM"
         </button>
       </div>
 

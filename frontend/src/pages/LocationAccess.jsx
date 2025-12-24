@@ -39,7 +39,6 @@ const mapContainerStyle = {
 
 export default function LocationAccess() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [location, setLocation] = useState(null);
   const [address, setAddress] = useState("");
@@ -81,12 +80,10 @@ export default function LocationAccess() {
 
 
   const requestLocation = () => {
-    setLoading(true);
     setError(null);
 
     if (!navigator.geolocation) {
       setError("Geolocation is not supported by your browser");
-      setLoading(false);
       return;
     }
 
@@ -120,8 +117,7 @@ export default function LocationAccess() {
         // Also keep in localStorage for convenience
         localStorage.setItem("userLocation", JSON.stringify(locationData));
 
-        setLoading(false);
-      },
+        },
       (error) => {
         let errorMessage = "Unable to retrieve your location";
 
@@ -141,8 +137,7 @@ export default function LocationAccess() {
         }
 
         setError(errorMessage);
-        setLoading(false);
-      },
+        },
       {
         enableHighAccuracy: true,
         timeout: 10000,
@@ -258,7 +253,7 @@ export default function LocationAccess() {
                   fontWeight: 500,
                 }}
               >
-                {address || "Loading address..."}
+{address || "Getting address..."}
               </div>
             </div>
           </>
@@ -284,21 +279,20 @@ export default function LocationAccess() {
         {!showMap ? (
           <button
             onClick={requestLocation}
-            disabled={loading}
             style={{
               width: "100%",
               padding: "14px",
               borderRadius: 999,
               border: "none",
-              background: loading ? "#ccc" : ORANGE,
+              background: ORANGE,
               color: "#fff",
               fontWeight: 600,
               fontSize: "0.95rem",
-              cursor: loading ? "not-allowed" : "pointer",
+              cursor: "pointer",
               marginBottom: 12,
             }}
           >
-            {loading ? "ACCESSING LOCATION..." : "ACCESS LOCATION"}
+            "ACCESS LOCATION"
           </button>
         ) : (
           <button

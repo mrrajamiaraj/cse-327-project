@@ -13,7 +13,6 @@ export default function EditCart() {
   const [items, setItems] = useState([]);
   const [originalItems, setOriginalItems] = useState([]); // Store original cart state
   const [removedItems, setRemovedItems] = useState([]); // Track removed items
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [addresses, setAddresses] = useState([]);
@@ -93,8 +92,6 @@ export default function EditCart() {
       ];
       setItems(fallbackItems);
       setOriginalItems(fallbackItems); // Store original state
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -192,14 +189,6 @@ export default function EditCart() {
     navigate("/payment", { state: { total } });
   };
   // ⬆⬆⬆
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: '#222' }}>
-        Loading cart...
-      </div>
-    );
-  }
 
   return (
     <div
@@ -315,7 +304,7 @@ export default function EditCart() {
                   fontWeight: 600,
                 }}
               >
-                {saving ? "SAVING..." : (hasChanges ? "SAVE" : "DONE")}
+                {hasChanges ? "SAVE" : "DONE"}
               </button>
             </div>
 

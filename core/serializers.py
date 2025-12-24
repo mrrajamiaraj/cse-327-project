@@ -187,10 +187,76 @@ class OrderSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
     restaurant = RestaurantSerializer(read_only=True)
     address = AddressSerializer(read_only=True)
+    delivery_address_display = serializers.SerializerMethodField()
+    items_details = serializers.SerializerMethodField()
+    formatted_created_at = serializers.SerializerMethodField()
+    time_ago = serializers.SerializerMethodField()
     
     class Meta:
         model = Order
         fields = '__all__'
+    
+    def get_delivery_address_display(self, obj):
+        """Get formatted delivery address for display"""
+        return obj.get_delivery_address_display()
+    
+    def get_items_details(self, obj):
+        """Get detailed information about order items"""
+        from .models import Food
+        items_with_details = []
+        
+        for item in obj.items:
+            try:
+                food = Food.objects.get(id=item['food_id'])
+                item_detail = {
+                    'food_id': item['food_id'],
+                    'food_name': food.name,
+                    'food_price': float(food.price),
+                    'quantity': item['quantity'],
+                    'variants': item.get('variants', []),
+                    'addons': item.get('addons', []),
+                    'subtotal': float(food.price) * item['quantity']
+                }
+                items_with_details.append(item_detail)
+            except Food.DoesNotExist:
+                # Fallback for deleted food items
+                item_detail = {
+                    'food_id': item['food_id'],
+                    'food_name': 'Item no longer available',
+                    'food_price': 0,
+                    'quantity': item['quantity'],
+                    'variants': item.get('variants', []),
+                    'addons': item.get('addons', []),
+                    'subtotal': 0
+                }
+                items_with_details.append(item_detail)
+        
+        return items_with_details
+    
+    def get_formatted_created_at(self, obj):
+        """Get formatted creation time"""
+        from django.utils import timezone
+        local_time = timezone.localtime(obj.created_at)
+        return local_time.strftime('%I:%M %p, %b %d')
+    
+    def get_time_ago(self, obj):
+        """Get human-readable time ago"""
+        from django.utils import timezone
+        from datetime import datetime, timedelta
+        
+        now = timezone.now()
+        diff = now - obj.created_at
+        
+        if diff.days > 0:
+            return f"{diff.days} day{'s' if diff.days > 1 else ''} ago"
+        elif diff.seconds > 3600:
+            hours = diff.seconds // 3600
+            return f"{hours} hour{'s' if hours > 1 else ''} ago"
+        elif diff.seconds > 60:
+            minutes = diff.seconds // 60
+            return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+        else:
+            return "Just now"
 
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -251,3 +317,16 @@ class WithdrawalRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = WithdrawalRequest
         fields = ['id', 'restaurant_name', 'amount', 'payment_method', 'payment_details', 'status', 'requested_at', 'processed_at', 'notes']
+
+class LoginLogSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_role = serializers.CharField(source='user.role', read_only=True)
+    browser_info = serializers.CharField(read_only=True)
+    device_type = serializers.CharField(read_only=True)
+    
+    class Meta:
+        model = LoginLog
+        fields = [
+            'id', 'user_email', 'user_role', 'login_time', 'ip_address', 
+            'success', 'failure_reason', 'browser_info', 'device_type'
+        ]
