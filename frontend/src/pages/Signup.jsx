@@ -271,7 +271,7 @@ export default function Signup() {
                 fontWeight: 600,
                 fontSize: "0.95rem",
                 cursor: "pointer",
-                opacity: loading ? 0.8 : 1,
+                opacity: 1,
               }}
             >
               "SIGN UP"

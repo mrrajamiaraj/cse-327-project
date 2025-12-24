@@ -201,7 +201,7 @@ export default function Login() {
                 fontWeight: 600,
                 fontSize: "0.95rem",
                 cursor: "pointer",
-                opacity: loading ? 0.8 : 1,
+                opacity: 1,
               }}
             >
               "LOG IN"

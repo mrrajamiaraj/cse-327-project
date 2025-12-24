@@ -14,7 +14,6 @@ export default function AddNewItems() {
   const [categories, setCategories] = useState([]);
   const [isVeg, setIsVeg] = useState(true);
   const [stockQuantity, setStockQuantity] = useState("50");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {

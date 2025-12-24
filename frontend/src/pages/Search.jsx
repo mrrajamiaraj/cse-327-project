@@ -156,17 +156,14 @@ export default function Search() {
 
         {/* Results */}
         <section style={{ flex: 1 }}>
-          {loading ? (
-            <div style={{ textAlign: "center", padding: 20, color: "#999" }}>Searching...</div>
-          ) : (
-            <>
-              {query && (
-                <h3 style={{ fontSize: "0.9rem", marginBottom: 12, color: "#222" }}>
-                  {results.length > 0 ? `Results for "${query}"` : `No results for "${query}"`}
-                </h3>
-              )}
+          <>
+            {query && (
+              <h3 style={{ fontSize: "0.9rem", marginBottom: 12, color: "#222" }}>
+                {results.length > 0 ? `Results for "${query}"` : `No results for "${query}"`}
+              </h3>
+            )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {results.map((r) => (
                   <div key={r.id} onClick={() => handleRestaurantClick(r)} style={{ cursor: "pointer" }}>
                     <RestaurantCard restaurant={r} />
@@ -174,7 +171,6 @@ export default function Search() {
                 ))}
               </div>
             </>
-          )}
         </section>
       </div>
     </div>

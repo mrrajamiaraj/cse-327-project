@@ -16,7 +16,6 @@ export default function AddCard() {
   const [number, setNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvc, setCvc] = useState("");
-  const [loading, setLoading] = useState(false);
   const [detectedCardType, setDetectedCardType] = useState("");
 
   const handleSubmit = async (e) => {

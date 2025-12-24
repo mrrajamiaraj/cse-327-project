@@ -8,6 +8,8 @@ import popular2 from "../assets/seller-popular-2.png";
 const ORANGE = "#ff7a00";
 
 export default function SellerDashboard() {
+  console.log("SellerDashboard component rendering...");
+  
   const [data, setData] = useState({
     location: "Your Restaurant",
     runningOrders: 0,
@@ -27,6 +29,8 @@ export default function SellerDashboard() {
   const [error, setError] = useState("");
   const [selectedBarIndex, setSelectedBarIndex] = useState(null);
   const navigate = useNavigate();
+
+  console.log("SellerDashboard state:", data);
 
   useEffect(() => {
     // Check if we have cached data to show immediately
@@ -377,7 +381,7 @@ export default function SellerDashboard() {
                   marginBottom: "8px",
                   gap: "3px"
                 }}>
-                  {data.chartData.values && data.chartData.values.length > 0 ? (
+                  {data.chartData && data.chartData.values && data.chartData.values.length > 0 ? (
                     data.chartData.values.map((value, index) => {
                       const maxValue = Math.max(...data.chartData.values);
                       const height = maxValue > 0 ? (value / maxValue) * 60 : 0;
@@ -513,7 +517,10 @@ export default function SellerDashboard() {
                 </div>
 
                 {/* Selected bar info */}
-                {selectedBarIndex !== null && data.chartData.values[selectedBarIndex] > 0 && (
+                {selectedBarIndex !== null && 
+                 data.chartData.values && 
+                 data.chartData.values[selectedBarIndex] !== undefined && 
+                 data.chartData.values[selectedBarIndex] > 0 && (
                   <div style={{
                     marginTop: "8px",
                     padding: "8px 12px",
