@@ -31,6 +31,8 @@ export default function MenuScreen() {
     navigate("/personal-info");
   } else if (item.label === "Addresses") {
     navigate("/addresses");          // 👈 new connection
+  } else if (item.label === "My Orders") {
+    navigate("/my-orders");          // 👈 new orders connection
   }
   // you can add more later, e.g.:
   // else if (item.label === "Cart") navigate("/cart");
@@ -178,6 +180,7 @@ export default function MenuScreen() {
           items={[
             { icon: "👤", label: "Personal Info" },
             { icon: "📍", label: "Addresses" },
+            { icon: "📦", label: "My Orders" },
             { icon: "🛒", label: "Cart" },
             { icon: "💜", label: "Favourite" },
             { icon: "🔔", label: "Notifications" },

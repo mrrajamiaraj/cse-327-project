@@ -1,4 +1,5 @@
 import { Routes, Route, Link, useLocation } from "react-router-dom";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 // Intro / auth
 import SplashScreen from "./pages/SplashScreen.jsx";
@@ -25,25 +26,38 @@ import SellerProfile from "./pages/SellerProfile.jsx";
 import TotalRevenue from "./pages/TotalRevenue.jsx";
 import WithdrawHistory from "./pages/WithdrawHistory.jsx";
 import SellerReviews from "./pages/SellerReviews.jsx";
+import RestaurantSettings from "./pages/RestaurantSettings.jsx";
 import ChatInterface from "./pages/ChatInterface.jsx";
 import MyOrders from "./pages/MyOrders.jsx";
 
+// Rider pages
+import RiderDashboard from "./pages/RiderDashboard.jsx";
+import RiderEarnings from "./pages/RiderEarnings.jsx";
+import RiderOrders from "./pages/RiderOrders.jsx";
+import RiderProfile from "./pages/RiderProfile.jsx";
 
+// Rider order preview
+import RiderOrderPreview from "./pages/RiderOrderPreview.jsx";
 
+// Rider customer chat
+import RiderCustomerChat from "./pages/RiderCustomerChat.jsx";
 
+// Order tracking
+import OrderTracking from "./pages/OrderTracking.jsx";
 
+// Review order
+import ReviewOrder from "./pages/ReviewOrder.jsx";
 
-
-
-
-
-
-
+// Admin pages
+import AdminDashboard from "./pages/AdminDashboard.jsx";
+import AdminUsers from "./pages/AdminUsers.jsx";
+import AdminRestaurants from "./pages/AdminRestaurants.jsx";
 
 // Main app pages
 import HomeScreen from "./pages/HomeScreen.jsx";
 import Cart from "./pages/Cart.jsx";
 import Checkout from "./pages/Checkout.jsx";
+import Favorites from "./pages/Favorites.jsx";
 
 // Feature pages
 import Offer from "./pages/Offer.jsx";
@@ -52,8 +66,6 @@ import Burgers from "./pages/Burgers.jsx";
 import FoodDetails from "./pages/FoodDetails.jsx";
 import RestaurantView from "./pages/RestaurantView.jsx";  // ✅ correct file
 import AddAddress from "./pages/AddAddress.jsx";
-
-
 
 export default function App() {
   const location = useLocation();
@@ -67,17 +79,18 @@ export default function App() {
   ].includes(location.pathname);
 
   return (
-    <div
-      style={{
-        fontFamily: "sans-serif",
-        minHeight: "100vh",
-        background: "#f5f5f5",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* Navbar */}
-      {!hideNav && (
+    <ErrorBoundary>
+      <div
+        style={{
+          fontFamily: "sans-serif",
+          minHeight: "100vh",
+          background: "#f5f5f5",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Navbar */}
+        {!hideNav && (
         <header
           style={{
             background: "#222",
@@ -104,6 +117,9 @@ export default function App() {
             </Link>
             <Link to="/seller-dashboard" style={{ color: "#fff", textDecoration: "none" }}>
               Seller
+            </Link>
+            <Link to="/rider-dashboard" style={{ color: "#fff", textDecoration: "none" }}>
+              Rider
             </Link>
             <Link to="/checkout" style={{ color: "#fff", textDecoration: "none" }}>
               Checkout
@@ -150,11 +166,32 @@ export default function App() {
           <Route path="/seller-messages" element={<SellerMessages />} />
           <Route path="/seller-profile" element={<SellerProfile />} />
           <Route path="/seller-profile-menu" element={<SellerProfileMenu />} />
+          <Route path="/restaurant-settings" element={<RestaurantSettings />} />
           <Route path="/total-revenue" element={<TotalRevenue />} />
           <Route path="/withdraw-history" element={<WithdrawHistory />} />
           <Route path="/seller-reviews" element={<SellerReviews />} />
           <Route path="/chat/:orderId" element={<ChatInterface />} />
           <Route path="/my-orders" element={<MyOrders />} />
+          <Route path="/favorites" element={<Favorites />} />
+
+          {/* Rider Routes */}
+          <Route path="/rider-dashboard" element={<RiderDashboard />} />
+          <Route path="/rider-earnings" element={<RiderEarnings />} />
+          <Route path="/rider-orders" element={<RiderOrders />} />
+          <Route path="/rider-profile" element={<RiderProfile />} />
+          <Route path="/rider/order-preview/:orderId" element={<RiderOrderPreview />} />
+          <Route path="/rider/chat/:orderId" element={<RiderCustomerChat />} />
+
+          {/* Order Tracking */}
+          <Route path="/order-tracking/:orderId" element={<OrderTracking />} />
+          
+          {/* Review Order */}
+          <Route path="/review/:orderId" element={<ReviewOrder />} />
+
+          {/* Admin Routes */}
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/restaurants" element={<AdminRestaurants />} />
 
 
           
@@ -193,5 +230,6 @@ export default function App() {
         </footer>
       )}
     </div>
+    </ErrorBoundary>
   );
 }

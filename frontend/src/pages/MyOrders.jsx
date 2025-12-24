@@ -76,6 +76,15 @@ export default function MyOrders() {
     });
   };
 
+  const cancelOrder = async (orderId) => {
+    try {
+      await api.post(`/customer/orders/${orderId}/cancel/`);
+      fetchOrders(); // Refresh the orders list
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+    }
+  };
+
   if (error) {
     return (
       <div style={pageWrap}>
@@ -169,6 +178,14 @@ export default function MyOrders() {
 
                   <div style={orderActions}>
                     <button
+                      onClick={() => navigate(`/order-tracking/${order.id}`)}
+                      style={trackButton}
+                      type="button"
+                    >
+                      📍 Track
+                    </button>
+                    
+                    <button
                       onClick={() => navigate(`/chat/${order.id}`)}
                       style={chatButton}
                       type="button"
@@ -178,7 +195,7 @@ export default function MyOrders() {
                     
                     {order.status === 'delivered' && (
                       <button
-                        onClick={() => {/* Add review functionality */}}
+                        onClick={() => navigate(`/review/${order.id}`)}
                         style={reviewButton}
                         type="button"
                       >
@@ -188,7 +205,7 @@ export default function MyOrders() {
                     
                     {['pending', 'preparing'].includes(order.status) && (
                       <button
-                        onClick={() => {/* Add cancel functionality */}}
+                        onClick={() => cancelOrder(order.id)}
                         style={cancelButton}
                         type="button"
                       >
@@ -323,6 +340,17 @@ const orderActions = {
   display: "flex",
   gap: "8px",
   flexWrap: "wrap",
+};
+
+const trackButton = {
+  padding: "6px 12px",
+  background: "#007bff",
+  color: "white",
+  border: "none",
+  borderRadius: "16px",
+  fontSize: "0.7rem",
+  cursor: "pointer",
+  fontWeight: 600,
 };
 
 const chatButton = {

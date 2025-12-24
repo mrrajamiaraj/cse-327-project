@@ -102,12 +102,15 @@ export default function Payment() {
     }
   };
 
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState("");
+
   const handleConfirm = async () => {
     console.log("=== Payment Confirmation Debug ===");
     console.log("Selected address:", selectedAddress);
     
     if (!selectedAddress) {
-      alert("Please select a delivery address first");
+      setError("Please select a delivery address first");
       return;
     }
 
@@ -121,11 +124,12 @@ export default function Payment() {
     // Validate address has either ID (saved address) or lat/lng (current location)
     if (!selectedAddress.id && (!selectedAddress.lat || !selectedAddress.lng)) {
       console.log("Validation failed - no ID and no lat/lng");
-      alert("Invalid delivery address. Please select a valid address or current location.");
+      setError("Invalid delivery address. Please select a valid address or current location.");
       return;
     }
 
     console.log("Address validation passed!");
+    setError("");
 
     // If Bkash is selected, show the payment gateway
     if (method === "Bkash") {
@@ -136,7 +140,7 @@ export default function Payment() {
     // If card payment is selected, show the card gateway
     if (method === "Card") {
       if (!selectedCard) {
-        alert("Please add a card first or select an existing card");
+        setError("Please add a card first or select an existing card");
         return;
       }
       setShowCardGateway(true);
@@ -148,6 +152,9 @@ export default function Payment() {
   };
 
   const processPayment = async (bkashData = null, cardData = null) => {
+    setProcessing(true);
+    setError("");
+    
     try {
       let addressId = selectedAddress.id;
 
@@ -213,8 +220,10 @@ export default function Payment() {
     } catch (error) {
       console.error("Checkout error:", error);
       console.error("Error details:", error.response?.data);
+      setError(`Payment failed: ${error.response?.data?.error || error.message}`);
       alert(`Payment failed: ${error.response?.data?.error || error.message}`);
     } finally {
+      setProcessing(false);
     }
   };
 
@@ -617,27 +626,42 @@ export default function Payment() {
           )}
         </div>
 
+        {/* Error display */}
+        {error && (
+          <div style={{
+            background: "#ffebee",
+            border: "1px solid #f44336",
+            borderRadius: 8,
+            padding: "12px",
+            marginBottom: 16,
+            fontSize: "0.8rem",
+            color: "#d32f2f"
+          }}>
+            {error}
+          </div>
+        )}
+
         {/* PAY & CONFIRM */}
         <button
           onClick={handleConfirm}
-          disabled={!selectedAddress || (method === "Card" && !selectedCard)}
+          disabled={!selectedAddress || (method === "Card" && !selectedCard) || processing}
           style={{
             width: "100%",
             padding: "11px 0",
             borderRadius: 10,
             border: "none",
-            background: (!selectedAddress || (method === "Card" && !selectedCard))
+            background: (!selectedAddress || (method === "Card" && !selectedCard) || processing)
               ? "#ccc" 
               : ORANGE,
             color: "#fff",
             fontWeight: 700,
-            cursor: (!selectedAddress || (method === "Card" && !selectedCard))
+            cursor: (!selectedAddress || (method === "Card" && !selectedCard) || processing)
               ? "not-allowed" 
               : "pointer",
             fontSize: "0.9rem",
           }}
         >
-          "PAY & CONFIRM"
+          {processing ? "PROCESSING..." : "PAY & CONFIRM"}
         </button>
       </div>
 

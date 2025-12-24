@@ -66,12 +66,10 @@ export default function Login() {
           navigate("/seller-dashboard"); // Restaurant owner goes to seller dashboard
           break;
         case 'rider':
-          alert("Rider dashboard is coming soon! Redirecting to home page.");
-          navigate("/home"); // Temporary redirect until rider dashboard is created
+          navigate("/rider-dashboard"); // Rider goes to rider dashboard
           break;
         case 'admin':
-          alert("Admin dashboard is coming soon! Redirecting to Django admin.");
-          window.location.href = "/admin"; // Redirect to Django admin for now
+          navigate("/admin-dashboard"); // Admin goes to admin dashboard
           break;
         default:
           navigate("/home"); // Fallback to home

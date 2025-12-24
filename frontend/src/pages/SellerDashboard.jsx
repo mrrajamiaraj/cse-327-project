@@ -123,7 +123,7 @@ export default function SellerDashboard() {
       console.log('Final chart data:', chartData);
 
       const newData = {
-        location: analytics.restaurant_address || restaurant.name || "Your Restaurant",
+        location: restaurant.full_address || restaurant.address_line || restaurant.name || "Set Restaurant Address",
         runningOrders: analytics.running_orders || 0,
         orderRequests: analytics.order_requests || 0,
         totalRevenue: analytics.chart_data?.total_revenue || analytics.daily_revenue || 0,
@@ -231,8 +231,21 @@ export default function SellerDashboard() {
               ☰
             </button>
 
-            {/* location center */}
-            <div style={{ textAlign: "center" }}>
+            {/* location center - clickable */}
+            <button 
+              onClick={() => navigate("/restaurant-settings")}
+              style={{ 
+                textAlign: "center", 
+                background: "none", 
+                border: "none", 
+                cursor: "pointer",
+                padding: "4px 8px",
+                borderRadius: "6px",
+                transition: "background-color 0.2s"
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = "#f5f5f5"}
+              onMouseLeave={(e) => e.target.style.backgroundColor = "transparent"}
+            >
               <div
                 style={{
                   fontSize: "0.65rem",
@@ -252,7 +265,7 @@ export default function SellerDashboard() {
               >
                 {data.location} ▼
               </div>
-            </div>
+            </button>
 
             {/* right avatar circle */}
             <div
@@ -858,7 +871,12 @@ function BottomNav() {
         fontSize: "1.1rem",
       }}
     >
-      <button style={navButtonStyle}>▦</button>
+      <button 
+        style={navButtonStyle}
+        onClick={() => navigate("/my-food")}
+      >
+        ▦
+      </button>
       <button 
         style={navButtonStyle}
         onClick={() => navigate("/running-orders")}

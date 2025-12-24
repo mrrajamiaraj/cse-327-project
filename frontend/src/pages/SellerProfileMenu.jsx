@@ -131,7 +131,7 @@ export default function SellerProfileMenu() {
           {/* menu list */}
           <div style={{ padding: "14px 12px" }}>
             <MenuItem icon="👤" label="Personal Info" onClick={() => navigate("/personal-info")} />
-            <MenuItem icon="⚙️" label="Settings" onClick={() => alert("Settings coming soon!")} />
+            <MenuItem icon="⚙️" label="Restaurant Settings" onClick={() => navigate("/restaurant-settings")} />
             <MenuItem icon="📄" label="Withdrawal History" onClick={() => alert("Withdrawal history coming soon!")} />
             <MenuItem icon="🧾" label="Number of Orders" rightText={profileData.totalOrders.toString()} />
             <MenuItem icon="⭐" label="User Reviews" onClick={() => alert("Reviews coming soon!")} />

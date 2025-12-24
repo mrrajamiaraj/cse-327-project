@@ -44,6 +44,7 @@ export default function Signup() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState("customer");
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
@@ -69,7 +70,7 @@ export default function Signup() {
         email: email,
         phone: phone,
         password: password,
-        role: "customer", // Forces customer only
+        role: role, // Use selected role
       });
 
       // Save login data
@@ -77,8 +78,14 @@ export default function Signup() {
       localStorage.setItem("refreshToken", response.data.refresh);
       localStorage.setItem("user", JSON.stringify(response.data.user));
 
-      // Go to location access
-      navigate("/location");
+      // Navigate based on role
+      if (response.data.user.role === 'rider') {
+        navigate("/rider-dashboard");
+      } else if (response.data.user.role === 'restaurant') {
+        navigate("/seller-dashboard");
+      } else {
+        navigate("/location"); // Customer goes to location access
+      }
     } catch (err) {
       // Debug: Log the full error response
       console.log("Full error object:", err);
@@ -216,6 +223,31 @@ export default function Signup() {
                 onChange={(e) => setPhone(e.target.value)}
                 style={inputStyle}
               />
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 500,
+                  color: "#999",
+                }}
+              >
+                I WANT TO JOIN AS
+              </label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                style={{
+                  ...inputStyle,
+                  cursor: "pointer",
+                  color: role === "customer" ? "#333" : "#333"
+                }}
+              >
+                <option value="customer">🍽️ Customer (Order Food)</option>
+                <option value="rider">🚴 Delivery Rider (Deliver Food)</option>
+                <option value="restaurant">🏪 Restaurant Owner (Sell Food)</option>
+              </select>
             </div>
 
             <div style={{ marginBottom: 14 }}>

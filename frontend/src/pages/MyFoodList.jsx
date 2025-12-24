@@ -1,39 +1,55 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../services/api";
 
 const ORANGE = "#ff7a00";
 
-const foods = [
-  {
-    id: "1",
-    name: "Chicken Biryani",
-    tag: "Lunch",
-    rating: 4.9,
-    reviews: 10,
-    price: 240,
-    image: "/src/assets/food-1.png",
-  },
-  {
-    id: "2",
-    name: "Chicken Bhuna",
-    tag: "Lunch",
-    rating: 4.9,
-    reviews: 10,
-    price: 120,
-    image: "/src/assets/food-2.png",
-  },
-  {
-    id: "3",
-    name: "Kacchi Biryani",
-    tag: "Lunch",
-    rating: 4.9,
-    reviews: 10,
-    price: 300,
-    image: "/src/assets/food-3.png",
-  },
-];
-
 export default function MyFoodList() {
   const navigate = useNavigate();
+  const [foods, setFoods] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState("All");
+
+  useEffect(() => {
+    fetchMyFoods();
+  }, []);
+
+  const fetchMyFoods = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/restaurant/menu/items/');
+      setFoods(response.data || []);
+    } catch (error) {
+      console.error("Error fetching foods:", error);
+      setError("Failed to load food items");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter foods based on active tab
+  const filteredFoods = foods.filter(food => {
+    if (activeTab === "All") return true;
+    const categoryName = food.category?.name || food.category;
+    return categoryName?.toLowerCase() === activeTab.toLowerCase();
+  });
+
+  const handleDeleteFood = async (foodId) => {
+    if (window.confirm("Are you sure you want to delete this food item?")) {
+      try {
+        await api.delete(`/restaurant/menu/items/${foodId}/`);
+        setFoods(foods.filter(food => food.id !== foodId));
+      } catch (error) {
+        console.error("Error deleting food:", error);
+        alert("Failed to delete food item");
+      }
+    }
+  };
+
+  const handleEditFood = (foodId) => {
+    navigate(`/edit-food/${foodId}`);
+  };
 
   return (
     <div
@@ -115,10 +131,10 @@ export default function MyFoodList() {
               alignItems: "center",
             }}
           >
-            <Tab active label="All" />
-            <Tab label="Breakfast" />
-            <Tab label="Lunch" />
-            <Tab label="Dinner" />
+            <Tab active={activeTab === "All"} label="All" onClick={() => setActiveTab("All")} />
+            <Tab active={activeTab === "Breakfast"} label="Breakfast" onClick={() => setActiveTab("Breakfast")} />
+            <Tab active={activeTab === "Lunch"} label="Lunch" onClick={() => setActiveTab("Lunch")} />
+            <Tab active={activeTab === "Dinner"} label="Dinner" onClick={() => setActiveTab("Dinner")} />
           </div>
 
           {/* total */}
@@ -130,22 +146,79 @@ export default function MyFoodList() {
               paddingLeft: 6,
             }}
           >
-            Total {foods.length.toString().padStart(2, "0")} items
+            Total {filteredFoods.length.toString().padStart(2, "0")} items
           </div>
 
+          {/* loading state */}
+          {loading && (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "#666" }}>
+              Loading your food items...
+            </div>
+          )}
+
+          {/* error state */}
+          {error && (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "#ff4444" }}>
+              {error}
+              <button 
+                onClick={fetchMyFoods}
+                style={{
+                  display: "block",
+                  margin: "10px auto",
+                  padding: "8px 16px",
+                  background: ORANGE,
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* empty state */}
+          {!loading && !error && filteredFoods.length === 0 && (
+            <div style={{ textAlign: "center", padding: "40px 0", color: "#666" }}>
+              <div style={{ fontSize: "2rem", marginBottom: "10px" }}>🍽️</div>
+              <div style={{ marginBottom: "10px" }}>No food items found</div>
+              <button 
+                onClick={() => navigate("/add-new-items")}
+                style={{
+                  padding: "8px 16px",
+                  background: ORANGE,
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer"
+                }}
+              >
+                Add Your First Item
+              </button>
+            </div>
+          )}
+
           {/* list */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-              padding: "0 6px",
-            }}
-          >
-            {foods.map((f) => (
-              <FoodRow key={f.id} food={f} />
-            ))}
-          </div>
+          {!loading && !error && filteredFoods.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                padding: "0 6px",
+              }}
+            >
+              {filteredFoods.map((f) => (
+                <FoodRow 
+                  key={f.id} 
+                  food={f} 
+                  onEdit={handleEditFood}
+                  onDelete={handleDeleteFood}
+                />
+              ))}
+            </div>
+          )}
 
           {/* bottom nav */}
           <SellerBottomNav
@@ -159,9 +232,12 @@ export default function MyFoodList() {
   );
 }
 
-function Tab({ label, active }) {
+function Tab({ label, active, onClick }) {
   return (
-    <div style={{ position: "relative", fontWeight: active ? 700 : 500 }}>
+    <div 
+      style={{ position: "relative", fontWeight: active ? 700 : 500, cursor: "pointer" }}
+      onClick={onClick}
+    >
       <span style={{ color: active ? ORANGE : "#8a8a8a" }}>{label}</span>
       {active && (
         <div
@@ -180,9 +256,11 @@ function Tab({ label, active }) {
   );
 }
 
-function FoodRow({ food }) {
+function FoodRow({ food, onEdit, onDelete }) {
+  const [showMenu, setShowMenu] = useState(false);
+
   return (
-    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+    <div style={{ display: "flex", gap: 10, alignItems: "center", position: "relative" }}>
       {/* image */}
       <div
         style={{
@@ -194,12 +272,30 @@ function FoodRow({ food }) {
           flexShrink: 0,
         }}
       >
-        <img
-          src={food.image}
-          alt={food.name}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          onError={(e) => (e.currentTarget.style.display = "none")}
-        />
+        {food.image ? (
+          <img
+            src={food.image}
+            alt={food.name}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+              e.currentTarget.nextSibling.style.display = "flex";
+            }}
+          />
+        ) : null}
+        <div 
+          style={{ 
+            width: "100%", 
+            height: "100%", 
+            display: food.image ? "none" : "flex", 
+            alignItems: "center", 
+            justifyContent: "center",
+            fontSize: "1.5rem",
+            color: "#999"
+          }}
+        >
+          🍽️
+        </div>
       </div>
 
       {/* middle text */}
@@ -220,7 +316,7 @@ function FoodRow({ food }) {
             fontWeight: 700,
           }}
         >
-          {food.tag}
+          {food.category?.name || food.category || "General"}
         </div>
 
         <div
@@ -233,9 +329,13 @@ function FoodRow({ food }) {
             color: "#9a9a9a",
           }}
         >
-          <span style={{ color: ORANGE }}>★</span>
-          <span style={{ color: "#444", fontWeight: 700 }}>{food.rating}</span>
-          <span>({food.reviews} Review)</span>
+          <span style={{ color: food.is_available ? "#4CAF50" : "#ff4444" }}>
+            {food.is_available ? "●" : "●"}
+          </span>
+          <span style={{ color: "#444", fontWeight: 700 }}>
+            {food.is_available ? "Available" : "Unavailable"}
+          </span>
+          <span>Stock: {food.stock_quantity || 0}</span>
         </div>
       </div>
 
@@ -245,23 +345,94 @@ function FoodRow({ food }) {
           ৳{food.price}
         </div>
         <div style={{ fontSize: "0.65rem", color: "#9a9a9a", marginTop: 4 }}>
-          Pick UP
+          {food.is_available ? "Available" : "Unavailable"}
         </div>
       </div>
 
-      {/* 3-dot */}
-      <button
-        style={{
-          border: "none",
-          background: "transparent",
-          cursor: "pointer",
-          color: "#888",
-          fontSize: "1.1rem",
-          paddingLeft: 4,
-        }}
-      >
-        ⋯
-      </button>
+      {/* 3-dot menu */}
+      <div style={{ position: "relative" }}>
+        <button
+          onClick={() => setShowMenu(!showMenu)}
+          style={{
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            color: "#888",
+            fontSize: "1.1rem",
+            paddingLeft: 4,
+          }}
+        >
+          ⋯
+        </button>
+
+        {/* Dropdown menu */}
+        {showMenu && (
+          <div
+            style={{
+              position: "absolute",
+              right: 0,
+              top: "100%",
+              background: "white",
+              border: "1px solid #e0e0e0",
+              borderRadius: "8px",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+              zIndex: 10,
+              minWidth: "120px"
+            }}
+          >
+            <button
+              onClick={() => {
+                onEdit(food.id);
+                setShowMenu(false);
+              }}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                border: "none",
+                background: "transparent",
+                textAlign: "left",
+                cursor: "pointer",
+                fontSize: "0.7rem"
+              }}
+            >
+              ✏️ Edit
+            </button>
+            <button
+              onClick={() => {
+                onDelete(food.id);
+                setShowMenu(false);
+              }}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                border: "none",
+                background: "transparent",
+                textAlign: "left",
+                cursor: "pointer",
+                fontSize: "0.7rem",
+                color: "#ff4444"
+              }}
+            >
+              🗑️ Delete
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Click outside to close menu */}
+      {showMenu && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 5
+          }}
+          onClick={() => setShowMenu(false)}
+        />
+      )}
     </div>
   );
 }

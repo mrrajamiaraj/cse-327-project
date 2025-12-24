@@ -9,6 +9,7 @@ from django.contrib.auth import authenticate
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import *
 from .serializers import *
@@ -477,9 +478,63 @@ class OrderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def track(self, request, pk=None):
         order = self.get_object()
-        # Mock for Figma map
-        rider_location = {'lat': 37.77, 'lng': -122.41, 'eta': '10 min'}
-        return Response(rider_location)
+        
+        response_data = {
+            'order_id': order.id,
+            'status': order.status,
+            'restaurant': {
+                'name': order.restaurant.name,
+                'address': order.restaurant.address,
+                'lat': order.restaurant.lat,
+                'lng': order.restaurant.lng,
+                'phone': order.restaurant.owner.phone if order.restaurant.owner else None
+            },
+            'prep_time_remaining': order.prep_time_remaining,
+            'estimated_delivery_time': order.estimated_delivery_time,
+            'eta': order.eta
+        }
+        
+        # Add rider information if assigned
+        if order.rider:
+            try:
+                rider_location = RiderLocation.objects.get(rider=order.rider)
+                response_data['rider'] = {
+                    'name': f"{order.rider.first_name} {order.rider.last_name}".strip() or "Rider",
+                    'phone': order.rider.phone,
+                    'location': {
+                        'lat': rider_location.lat,
+                        'lng': rider_location.lng,
+                        'heading': rider_location.heading,
+                        'is_moving': rider_location.is_moving,
+                        'last_updated': rider_location.updated_at.isoformat()
+                    },
+                    'rating': 4.8  # Mock rating for now
+                }
+            except RiderLocation.DoesNotExist:
+                response_data['rider'] = {
+                    'name': f"{order.rider.first_name} {order.rider.last_name}".strip() or "Rider",
+                    'phone': order.rider.phone,
+                    'location': None,
+                    'rating': 4.8
+                }
+        
+        # Add delivery address
+        if order.address:
+            response_data['delivery_address'] = {
+                'title': order.address.title,
+                'address': order.address.address,
+                'lat': order.address.lat,
+                'lng': order.address.lng
+            }
+        elif order.delivery_location:
+            response_data['delivery_address'] = {
+                'title': 'Current Location',
+                'address': order.delivery_location.get('address', 'Customer Location'),
+                'lat': order.delivery_location.get('lat'),
+                'lng': order.delivery_location.get('lng')
+            }
+        
+        return Response(response_data)
 
     @action(detail=True, methods=['get', 'post'])
     def chat(self, request, pk=None):
@@ -601,6 +656,10 @@ class RestaurantOrderViewSet(viewsets.ReadOnlyModelViewSet):
             if status_filter == 'active':
                 # Only pending and running orders for dashboard
                 queryset = queryset.filter(status__in=['pending', 'preparing', 'ready_for_pickup', 'out_for_delivery'])
+            elif status_filter == 'pending':
+                queryset = queryset.filter(status='pending')
+            elif status_filter == 'completed':
+                queryset = queryset.filter(status__in=['delivered', 'cancelled'])
             else:
                 queryset = queryset.filter(status=status_filter)
         
@@ -610,16 +669,88 @@ class RestaurantOrderViewSet(viewsets.ReadOnlyModelViewSet):
     def accept(self, request, pk=None):
         order = self.get_object()
         order.status = 'preparing'
-        order.prep_time = request.data['prep_time_minutes']
+        order.prep_time = request.data.get('prep_time_minutes', 20)
+        order.prep_started_at = timezone.now()
+        order.prep_time_remaining = order.prep_time
         order.save()
-        return Response({'status': order.status})
+        
+        # Create notification for customer
+        Notification.objects.create(
+            user=order.user,
+            message=f'Your order from {order.restaurant.name} is being prepared! Estimated time: {order.prep_time} minutes'
+        )
+        
+        return Response({'status': order.status, 'prep_time': order.prep_time})
 
     @action(detail=True, methods=['post'])
     def ready(self, request, pk=None):
+        from django.utils import timezone
+        
         order = self.get_object()
         order.status = 'ready_for_pickup'
+        order.ready_at = timezone.now()
+        order.prep_time_remaining = 0
         order.save()
-        return Response({'status': order.status})
+        
+        # Try to automatically assign an available rider
+        try:
+            # Find online riders without current orders
+            available_rider = User.objects.filter(
+                role='rider',
+                is_online=True
+            ).exclude(
+                rider_orders__status__in=['rider_assigned', 'picked_up', 'out_for_delivery']
+            ).first()
+            
+            if available_rider:
+                order.rider = available_rider
+                order.status = 'rider_assigned'
+                order.save()
+                
+                # Create notification for rider
+                Notification.objects.create(
+                    user=available_rider,
+                    message=f'New delivery request from {order.restaurant.name}! Pickup location: {order.restaurant.address}'
+                )
+                
+                # Create notification for customer
+                Notification.objects.create(
+                    user=order.user,
+                    message=f'Great news! A rider has been assigned to deliver your order from {order.restaurant.name}'
+                )
+            else:
+                # No rider available, notify customer
+                Notification.objects.create(
+                    user=order.user,
+                    message=f'Your order from {order.restaurant.name} is ready! We are looking for a delivery rider.'
+                )
+        except Exception as e:
+            # If rider assignment fails, just log it and continue
+            print(f"Could not auto-assign rider: {e}")
+            # Notify customer that food is ready
+            Notification.objects.create(
+                user=order.user,
+                message=f'Your order from {order.restaurant.name} is ready! We are looking for a delivery rider.'
+            )
+        
+        return Response({'status': order.status, 'message': 'Order marked as ready'})
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        order = self.get_object()
+        if order.status not in ['pending', 'preparing']:
+            return Response({'error': 'Cannot cancel order at this stage'}, status=400)
+        
+        order.status = 'cancelled'
+        order.save()
+        
+        # Create notification for customer
+        Notification.objects.create(
+            user=order.user,
+            message=f'Your order from {order.restaurant.name} has been cancelled. You will receive a full refund.'
+        )
+        
+        return Response({'status': order.status, 'message': 'Order cancelled successfully'})
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
@@ -1215,27 +1346,102 @@ class RiderAvailabilityView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        request.user.is_online = request.data['is_online']
+        if request.user.role != 'rider':
+            return Response({'error': 'Access denied'}, status=403)
+        
+        request.user.is_online = request.data.get('is_online', False)
         request.user.save()
-        return Response({'message': 'Updated'})
+        
+        # Update or create rider location if going online
+        if request.user.is_online:
+            lat = request.data.get('lat')
+            lng = request.data.get('lng')
+            if lat and lng:
+                location, created = RiderLocation.objects.get_or_create(rider=request.user)
+                location.lat = lat
+                location.lng = lng
+                location.save()
+        
+        return Response({
+            'is_online': request.user.is_online,
+            'message': 'Online' if request.user.is_online else 'Offline'
+        })
 
 class RiderLocationView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        location, _ = RiderLocation.objects.get_or_create(rider=request.user)
+        if request.user.role != 'rider':
+            return Response({'error': 'Access denied'}, status=403)
+            
+        location, created = RiderLocation.objects.get_or_create(rider=request.user)
         location.lat = request.data['lat']
         location.lng = request.data['lng']
+        location.heading = request.data.get('heading')
+        location.speed = request.data.get('speed')
+        location.accuracy = request.data.get('accuracy')
+        location.is_moving = request.data.get('is_moving', False)
         location.save()
-        return Response({'message': 'Location updated'})
+        
+        # Update ETA for current order if rider is on delivery
+        try:
+            current_order = Order.objects.get(
+                rider=request.user,
+                status__in=['rider_assigned', 'picked_up', 'out_for_delivery']
+            )
+            
+            # Calculate ETA based on distance and current location
+            if current_order.status == 'out_for_delivery' and current_order.address:
+                eta = self.calculate_eta(
+                    location.lat, location.lng,
+                    current_order.address.lat, current_order.address.lng
+                )
+                current_order.eta = eta
+                current_order.save()
+                
+        except Order.DoesNotExist:
+            pass
+            
+        return Response({'message': 'Location updated', 'eta_updated': True})
+    
+    def calculate_eta(self, rider_lat, rider_lng, dest_lat, dest_lng):
+        """Calculate estimated time of arrival"""
+        import math
+        
+        # Calculate distance using Haversine formula
+        R = 6371  # Earth's radius in km
+        dLat = math.radians(dest_lat - rider_lat)
+        dLng = math.radians(dest_lng - rider_lng)
+        a = (math.sin(dLat/2) * math.sin(dLat/2) +
+             math.cos(math.radians(rider_lat)) * math.cos(math.radians(dest_lat)) *
+             math.sin(dLng/2) * math.sin(dLng/2))
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+        distance = R * c
+        
+        # Assume average speed of 25 km/h for delivery
+        time_hours = distance / 25
+        time_minutes = int(time_hours * 60)
+        
+        if time_minutes < 1:
+            return "1 min"
+        elif time_minutes < 60:
+            return f"{time_minutes} min"
+        else:
+            hours = time_minutes // 60
+            minutes = time_minutes % 60
+            return f"{hours}h {minutes}m"
 
 class RiderProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        if request.user.role != 'rider':
+            return Response({'error': 'Access denied'}, status=403)
         return Response(UserSerializer(request.user).data)
 
     def put(self, request):
+        if request.user.role != 'rider':
+            return Response({'error': 'Access denied'}, status=403)
         serializer = UserSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -1247,32 +1453,314 @@ class RiderAvailableOrderViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Mock for Figma
-        return Order.objects.filter(status='ready_for_pickup')
+        if self.request.user.role != 'rider':
+            return Order.objects.none()
+        
+        # Get orders that are ready for pickup and don't have a rider assigned
+        available_orders = Order.objects.filter(
+            status='ready_for_pickup',
+            rider__isnull=True
+        ).select_related('restaurant', 'user', 'address').order_by('-created_at')
+        
+        # Add distance calculation if rider location is available
+        try:
+            rider_location = RiderLocation.objects.get(rider=self.request.user)
+            # In a real app, you'd calculate distance here
+            # For now, we'll add mock distance data
+            for order in available_orders:
+                order.distance = 2.5  # Mock distance in km
+                order.delivery_fee = 50  # Mock delivery fee
+        except RiderLocation.DoesNotExist:
+            pass
+            
+        return available_orders
 
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
-        order = self.get_object()
+        """Accept a delivery order"""
+        if request.user.role != 'rider':
+            return Response({'error': 'Access denied'}, status=403)
+        
+        try:
+            order = Order.objects.get(id=pk, status='ready_for_pickup', rider__isnull=True)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not available'}, status=404)
+        
+        # Check if rider is online
+        if not request.user.is_online:
+            return Response({'error': 'You must be online to accept orders'}, status=400)
+        
+        # Check if rider already has an active order
+        active_order = Order.objects.filter(
+            rider=request.user,
+            status__in=['rider_assigned', 'picked_up', 'out_for_delivery']
+        ).first()
+        
+        if active_order:
+            return Response({'error': 'You already have an active delivery'}, status=400)
+        
+        # Assign rider to order
         order.rider = request.user
         order.status = 'rider_assigned'
         order.save()
-        return Response({'status': order.status})
+        
+        # Create notifications
+        Notification.objects.create(
+            user=order.user,
+            message=f'Great news! A rider has accepted your order from {order.restaurant.name}'
+        )
+        
+        Notification.objects.create(
+            user=order.restaurant.owner,
+            message=f'Rider {request.user.first_name or request.user.email} is coming to pick up order #{order.id}'
+        )
+        
+        return Response({
+            'message': 'Order accepted successfully',
+            'order_id': order.id,
+            'status': order.status,
+            'restaurant_name': order.restaurant.name,
+            'restaurant_address': order.restaurant.address,
+            'customer_name': f"{order.user.first_name} {order.user.last_name}".strip() or order.user.email,
+            'delivery_address': order.get_delivery_address_display(),
+            'total': float(order.total)
+        })
+
+    @action(detail=True, methods=['post'])
+    def accept(self, request, pk=None):
+        if request.user.role != 'rider':
+            return Response({'error': 'Access denied'}, status=403)
+            
+        order = self.get_object()
+        
+        # Check if order is still available
+        if order.rider is not None:
+            return Response({'error': 'Order already assigned'}, status=400)
+        
+        if order.status != 'ready_for_pickup':
+            return Response({'error': 'Order not ready for pickup'}, status=400)
+        
+        # Assign rider and update status
+        order.rider = request.user
+        order.status = 'rider_assigned'
+        order.save()
+        
+        # Create notification for customer
+        Notification.objects.create(
+            user=order.user,
+            message=f'Your order from {order.restaurant.name} has been assigned to a rider!'
+        )
+        
+        return Response({'status': order.status, 'message': 'Order accepted successfully'})
+
+class RiderCurrentOrderView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        if request.user.role != 'rider':
+            return Response({'error': 'Access denied'}, status=403)
+        
+        # Get current active order for this rider
+        current_order = Order.objects.filter(
+            rider=request.user,
+            status__in=['rider_assigned', 'picked_up', 'out_for_delivery']
+        ).select_related('restaurant', 'user', 'address').first()
+        
+        if not current_order:
+            return Response(None)
+        
+        # Prepare order data for rider
+        order_data = {
+            'id': current_order.id,
+            'status': current_order.status,
+            'restaurant_name': current_order.restaurant.name,
+            'restaurant_address': current_order.restaurant.address or 'Address not available',
+            'customer_name': f"{current_order.user.first_name} {current_order.user.last_name}".strip() or current_order.user.email,
+            'delivery_address': current_order.get_delivery_address_display(),
+            'total': float(current_order.total),
+            'payment_method': current_order.payment_method,
+            'items_count': len(current_order.items),
+            'created_at': current_order.created_at.isoformat(),
+            'customer_phone': current_order.user.phone
+        }
+        
+        return Response(order_data)
+
+class RiderOrderUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, order_id):
+        from django.utils import timezone
+        
+        if request.user.role != 'rider':
+            return Response({'error': 'Access denied'}, status=403)
+        
+        try:
+            order = Order.objects.get(id=order_id, rider=request.user)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=404)
+        
+        new_status = request.data.get('status')
+        valid_transitions = {
+            'rider_assigned': 'picked_up',
+            'picked_up': 'out_for_delivery',
+            'out_for_delivery': 'delivered'
+        }
+        
+        if order.status not in valid_transitions:
+            return Response({'error': 'Invalid order status'}, status=400)
+        
+        if new_status not in valid_transitions.get(order.status, []):
+            return Response({'error': f'Cannot change status from {order.status} to {new_status}'}, status=400)
+        
+        order.status = new_status
+        
+        # Update timestamps based on status
+        if new_status == 'picked_up':
+            order.picked_up_at = timezone.now()
+            # Calculate estimated delivery time (assume 20 minutes average)
+            order.estimated_delivery_time = timezone.now() + timezone.timedelta(minutes=20)
+            order.eta = "20 min"
+            
+            Notification.objects.create(
+                user=order.user,
+                message=f'Your order from {order.restaurant.name} has been picked up and is on the way!'
+            )
+            
+        elif new_status == 'out_for_delivery':
+            Notification.objects.create(
+                user=order.user,
+                message=f'Your rider is on the way! Track your order for real-time updates.'
+            )
+            
+        elif new_status == 'delivered':
+            Notification.objects.create(
+                user=order.user,
+                message=f'Your order from {order.restaurant.name} has been delivered! Enjoy your meal!'
+            )
+            # Update restaurant earnings
+            try:
+                earnings = RestaurantEarnings.objects.get(restaurant=order.restaurant)
+                earnings.add_earnings(order.total)
+            except RestaurantEarnings.DoesNotExist:
+                RestaurantEarnings.objects.create(
+                    restaurant=order.restaurant,
+                    total_earnings=order.total * 0.85,  # 85% after 15% commission
+                    available_balance=order.total * 0.85
+                )
+        
+        order.save()
+        
+        return Response({
+            'status': order.status, 
+            'message': 'Order status updated successfully',
+            'eta': order.eta,
+            'estimated_delivery_time': order.estimated_delivery_time
+        })
 
 class RiderOrderHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Order.objects.filter(rider=self.request.user)
+        if self.request.user.role != 'rider':
+            return Order.objects.none()
+        return Order.objects.filter(rider=self.request.user).order_by('-created_at')
 
 class RiderEarningsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        # Mock for Figma
-        total = 500
-        trips = 100
-        return Response({'total_earned': total, 'trips_completed': trips})
+        if request.user.role != 'rider':
+            return Response({'error': 'Access denied'}, status=403)
+        
+        from datetime import date, timedelta
+        from django.db.models import Sum, Count, Avg
+        
+        # Get rider's completed orders
+        completed_orders = Order.objects.filter(rider=request.user, status='delivered')
+        
+        # Today's earnings
+        today = date.today()
+        today_orders = completed_orders.filter(created_at__date=today)
+        today_earnings = today_orders.count() * 50  # ৳50 per delivery
+        today_trips = today_orders.count()
+        
+        # Total stats
+        total_trips = completed_orders.count()
+        total_earnings = total_trips * 50  # ৳50 per delivery
+        
+        # Average rating (mock for now)
+        average_rating = 4.8
+        
+        # Weekly earnings (last 7 days)
+        week_start = today - timedelta(days=6)
+        weekly_orders = completed_orders.filter(created_at__date__gte=week_start)
+        weekly_earnings = weekly_orders.count() * 50
+        
+        return Response({
+            'today_earnings': today_earnings,
+            'today_trips': today_trips,
+            'total_earnings': total_earnings,
+            'total_trips': total_trips,
+            'weekly_earnings': weekly_earnings,
+            'average_rating': average_rating,
+            'earnings_per_trip': 50
+        })
+
+class RiderOrderViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for rider to manage their assigned orders and chat with customers
+    """
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.role != 'rider':
+            return Order.objects.none()
+        
+        # Return orders assigned to this rider
+        return Order.objects.filter(
+            rider=self.request.user
+        ).select_related('restaurant', 'user', 'address').order_by('-created_at')
+
+    @action(detail=True, methods=['get', 'post'])
+    def chat(self, request, pk=None):
+        """
+        Chat endpoint for rider to communicate with customer
+        """
+        if request.user.role != 'rider':
+            return Response({'error': 'Access denied'}, status=403)
+        
+        order = self.get_object()
+        
+        # Verify rider is assigned to this order
+        if order.rider != request.user:
+            return Response({'error': 'You are not assigned to this order'}, status=403)
+        
+        # Only allow chat when rider is assigned or actively delivering
+        if order.status not in ['rider_assigned', 'picked_up', 'out_for_delivery']:
+            return Response({'error': 'Chat not available for this order status'}, status=400)
+        
+        if request.method == 'GET':
+            # Get chat messages for this order
+            messages = OrderChatMessage.objects.filter(order=order).order_by('created_at')
+            return Response(OrderChatMessageSerializer(messages, many=True).data)
+        
+        elif request.method == 'POST':
+            # Send a new message
+            serializer = OrderChatMessageSerializer(data=request.data)
+            if serializer.is_valid():
+                message = serializer.save(order=order, sender=request.user)
+                
+                # Create notification for customer
+                Notification.objects.create(
+                    user=order.user,
+                    message=f'New message from your delivery rider for order #{order.id}'
+                )
+                
+                return Response(OrderChatMessageSerializer(message).data, status=201)
+            return Response(serializer.errors, status=400)
 
 # Admin
 class AdminDashboardView(APIView):

@@ -23,8 +23,33 @@ class UserSerializer(serializers.ModelSerializer):
         return None
     
     def validate_phone(self, value):
-        """Validate Bangladesh phone number format - temporarily disabled for debugging"""
-        # Temporarily return value as-is for debugging
+        """Validate Bangladesh phone number format"""
+        if not value:
+            return value
+        
+        import re
+        # Remove all spaces and dashes for validation
+        clean_phone = re.sub(r'[\s\-]', '', value)
+        
+        # Bangladesh phone number patterns
+        patterns = [
+            r'^(\+880|880)?1[3-9]\d{8}$',  # +880 1XXX-XXXXXX format
+            r'^01[3-9]\d{8}$',             # 01XXX-XXXXXX format
+        ]
+        
+        if not any(re.match(pattern, clean_phone) for pattern in patterns):
+            raise serializers.ValidationError(
+                "Invalid Bangladesh phone number format. Use +880 1XXX-XXXXXX or 01XXX-XXXXXX"
+            )
+        
+        # Format the phone number consistently
+        if clean_phone.startswith('+880'):
+            return clean_phone
+        elif clean_phone.startswith('880'):
+            return '+' + clean_phone
+        elif clean_phone.startswith('01'):
+            return '+880' + clean_phone[1:]
+        
         return value
         
         # Original validation code (commented out for debugging)
@@ -99,12 +124,16 @@ class RestaurantSerializer(serializers.ModelSerializer):
     rating = serializers.SerializerMethodField()
     delivery_time = serializers.SerializerMethodField()
     banner = serializers.SerializerMethodField()
+    full_address = serializers.ReadOnlyField()
     
     class Meta:
         model = Restaurant
-        fields = ['id', 'owner', 'name', 'banner', 'cuisine', 'address', 'rating', 'delivery_time', 
-                  'is_approved', 'lat', 'lng', 'prep_time_minutes']
-        read_only_fields = ['rating', 'delivery_time']
+        fields = ['id', 'owner', 'name', 'banner', 'cuisine', 
+                  'address_title', 'address_line', 'area', 'city', 'postal_code',
+                  'full_address', 'lat', 'lng',
+                  'address', 'rating', 'delivery_time', 
+                  'is_approved', 'prep_time_minutes']
+        read_only_fields = ['rating', 'delivery_time', 'full_address']
     
     def get_banner(self, obj):
         """Return full URL for banner image"""

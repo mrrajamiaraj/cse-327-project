@@ -104,7 +104,7 @@ export default function SellerProfile() {
           {/* Menu list */}
           <div style={{ padding: "12px 10px 74px" }}>
             <MenuItem icon="👤" label="Personal Info" onClick={() => navigate("/personal-info")} />
-            {/* Settings replaced by Total Revenue */}
+            <MenuItem icon="⚙️" label="Restaurant Settings" onClick={() => navigate("/restaurant-settings")} />
             <MenuItem icon="📈" label="Total Revenue" onClick={() => navigate("/total-revenue")} />
             <MenuItem icon="🧾" label="Withdrawal History" onClick={() => navigate("/withdraw-history")} />
             <MenuItem icon="📦" label="Number of Orders" right={profileData.totalOrders.toString()} onClick={() => navigate("/order-history")} />

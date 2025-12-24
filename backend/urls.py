@@ -27,8 +27,8 @@ router.register(r'restaurant/orders', RestaurantOrderViewSet, basename='restaura
 router.register(r'restaurant/reviews', RestaurantReviewViewSet, basename='restaurant-review')
 router.register(r'rider/orders/available', RiderAvailableOrderViewSet, basename='rider-available-order')
 router.register(r'rider/orders/history', RiderOrderHistoryViewSet, basename='rider-order-history')
+router.register(r'rider/orders', RiderOrderViewSet, basename='rider-order')
 router.register(r'admin/login-logs', LoginLogViewSet, basename='login-log')
-
 router.register(r'admin/users', AdminUserViewSet, basename='admin-user')
 router.register(r'admin/restaurants', AdminRestaurantViewSet, basename='admin-restaurant')
 router.register(r'admin/orders', AdminOrderViewSet, basename='admin-order')
@@ -37,8 +37,8 @@ router.register(r'admin/reviews', AdminReviewViewSet, basename='admin-review')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include(router.urls)),
-    path('api/v1/auth/register/', RegisterView.as_view()),
-    path('api/v1/auth/login/', LoginView.as_view()),
+    path('api/v1/auth/register/', RegisterView.as_view(), name='register'),
+    path('api/v1/auth/login/', LoginView.as_view(), name='login'),
     path('api/v1/auth/token/refresh/', TokenRefreshView.as_view()),
     path('api/v1/auth/profile/', ProfileView.as_view()),
     path('api/v1/customer/home/', HomeView.as_view({'get': 'list'})),
@@ -48,14 +48,16 @@ urlpatterns = [
     path('api/v1/restaurant/analytics/', RestaurantAnalyticsView.as_view()),
     path('api/v1/restaurant/earnings/', RestaurantEarningsView.as_view()),
     path('api/v1/restaurant/withdrawals/', RestaurantWithdrawalsView.as_view()),
+    path('api/v1/rider/profile/', RiderProfileView.as_view()),
     path('api/v1/rider/availability/', RiderAvailabilityView.as_view()),
     path('api/v1/rider/location/', RiderLocationView.as_view()),
-    path('api/v1/rider/profile/', RiderProfileView.as_view()),
+    path('api/v1/rider/earnings/', RiderEarningsView.as_view(), name='rider-earnings'),
+    path('api/v1/rider/available-orders/', RiderAvailableOrderViewSet.as_view({'get': 'list'})),
+    path('api/v1/rider/current-order/', RiderCurrentOrderView.as_view()),
+    path('api/v1/rider/orders/<int:order_id>/accept/', RiderAvailableOrderViewSet.as_view({'post': 'accept'})),
+    path('api/v1/rider/orders/<int:order_id>/update-status/', RiderOrderUpdateView.as_view()),
     path('api/v1/admin/dashboard/', AdminDashboardView.as_view()),
     path('api/v1/admin/revenue/', AdminRevenueView.as_view()),
     path('api/v1/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/v1/docs/', SpectacularSwaggerView.as_view(url_name='schema')),
-    path('api/v1/rider/earnings/', RiderEarningsView.as_view(), name='rider-earnings'),
-    path('api/v1/auth/register/', RegisterView.as_view(), name='register'),
-    path('api/v1/auth/login/', LoginView.as_view(), name='login'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

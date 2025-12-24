@@ -89,16 +89,37 @@ class Restaurant(models.Model):
     name = models.CharField(max_length=100)
     banner = models.ImageField(upload_to='banners/', null=True)
     cuisine = models.CharField(max_length=255, help_text="Restaurant cuisine type or description (e.g., Italian, Fast Food, Asian Fusion)")
-    address = models.TextField(null=True, blank=True, help_text="Restaurant address")
-    # rating is now calculated from reviews, not stored
-    # delivery_time is now calculated based on distance
+    
+    # Address fields - similar to customer Address model but single address for restaurant
+    address_title = models.CharField(max_length=100, default="Restaurant Location", help_text="Address title (e.g., 'Main Branch', 'Downtown Location')")
+    address_line = models.TextField(default="Address not set", help_text="Full address line")
+    area = models.CharField(max_length=100, blank=True, help_text="Area/Neighborhood")
+    city = models.CharField(max_length=50, default="Dhaka", help_text="City")
+    postal_code = models.CharField(max_length=10, blank=True, help_text="Postal/ZIP code")
+    lat = models.FloatField(default=23.8103, help_text="Latitude coordinate")
+    lng = models.FloatField(default=90.4125, help_text="Longitude coordinate")
+    
+    # Legacy address field for backward compatibility - will be deprecated
+    address = models.TextField(null=True, blank=True, help_text="Legacy address field (deprecated)")
+    
+    # Other fields
     is_approved = models.BooleanField(default=False)
-    lat = models.FloatField(null=True)
-    lng = models.FloatField(null=True)
     prep_time_minutes = models.IntegerField(default=20, help_text="Average food preparation time in minutes")
 
     def __str__(self):
         return self.name
+    
+    @property
+    def full_address(self):
+        """Get formatted full address"""
+        parts = [self.address_line]
+        if self.area:
+            parts.append(self.area)
+        if self.city:
+            parts.append(self.city)
+        if self.postal_code:
+            parts.append(self.postal_code)
+        return ", ".join(parts)
     
     def get_average_rating(self):
         """Calculate average rating from all reviews for this restaurant's orders"""
@@ -258,8 +279,13 @@ class Order(models.Model):
     payment_status = models.CharField(max_length=20, default='pending')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     note = models.TextField(null=True)
-    prep_time = models.IntegerField(null=True)
-    eta = models.CharField(max_length=20, null=True)
+    prep_time = models.IntegerField(null=True, help_text="Estimated preparation time in minutes")
+    prep_time_remaining = models.IntegerField(null=True, help_text="Remaining preparation time in minutes")
+    prep_started_at = models.DateTimeField(null=True, blank=True, help_text="When preparation started")
+    ready_at = models.DateTimeField(null=True, blank=True, help_text="When food was marked ready")
+    picked_up_at = models.DateTimeField(null=True, blank=True, help_text="When rider picked up the order")
+    estimated_delivery_time = models.DateTimeField(null=True, blank=True, help_text="Estimated delivery time")
+    eta = models.CharField(max_length=20, null=True, help_text="Estimated time of arrival (e.g., '15 min')")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -328,7 +354,14 @@ class RiderLocation(models.Model):
     rider = models.OneToOneField(User, on_delete=models.CASCADE)
     lat = models.FloatField()
     lng = models.FloatField()
+    heading = models.FloatField(null=True, blank=True, help_text="Direction in degrees (0-360)")
+    speed = models.FloatField(null=True, blank=True, help_text="Speed in km/h")
+    accuracy = models.FloatField(null=True, blank=True, help_text="GPS accuracy in meters")
+    is_moving = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.rider.email} - {self.lat}, {self.lng} ({self.updated_at})"
 
 
 class RestaurantEarnings(models.Model):
