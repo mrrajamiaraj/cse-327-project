@@ -14,7 +14,11 @@ export default function AddNewItems() {
   const [categories, setCategories] = useState([]);
   const [isVeg, setIsVeg] = useState(true);
   const [stockQuantity, setStockQuantity] = useState("50");
+  const [ingredients, setIngredients] = useState("");
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -28,12 +32,29 @@ export default function AddNewItems() {
 
   const fetchCategories = async () => {
     try {
-      const response = await api.get('/customer/food/');
-      // Get unique categories from existing foods
-      const uniqueCategories = [...new Set(response.data.results?.map(food => food.category?.name).filter(Boolean))];
-      setCategories(uniqueCategories);
+      const response = await api.get('/restaurant/menu/categories/');
+      setCategories(response.data || []);
     } catch (error) {
       console.error("Error fetching categories:", error);
+      // Use default categories if API fails
+      setCategories([
+        "Biriyani", "Curry", "Kebab", "Fish", "Chicken", "Beef", 
+        "Vegetarian", "Dessert", "Snacks", "Drinks", "Coffee", "Tea"
+      ]);
+    }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -43,20 +64,38 @@ export default function AddNewItems() {
       return;
     }
 
+    if (parseFloat(price) <= 0) {
+      setError("Price must be greater than 0");
+      return;
+    }
+
     try {
-        setError("");
+      setError("");
+      setLoading(true);
 
-      const foodData = {
-        name: itemName.trim(),
-        price: parseFloat(price),
-        description: description.trim(),
-        category_name: category, // Backend will handle category creation/lookup
-        is_veg: isVeg,
-        stock_quantity: parseInt(stockQuantity) || 50,
-        is_available: true
-      };
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('name', itemName.trim());
+      formData.append('price', parseFloat(price));
+      formData.append('description', description.trim());
+      formData.append('category_name', category);
+      formData.append('is_veg', isVeg);
+      formData.append('stock_quantity', parseInt(stockQuantity) || 50);
+      formData.append('is_available', true);
+      
+      if (ingredients.trim()) {
+        formData.append('ingredients', ingredients.trim());
+      }
+      
+      if (selectedImage) {
+        formData.append('image', selectedImage);
+      }
 
-      await api.post('/restaurant/menu/items/', foodData);
+      await api.post('/restaurant/menu/items/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       
       alert("Food item added successfully!");
       navigate("/seller-dashboard");
@@ -65,7 +104,21 @@ export default function AddNewItems() {
       console.error("Error saving food item:", error);
       setError(error.response?.data?.error || "Failed to save food item. Please try again.");
     } finally {
+      setLoading(false);
     }
+  };
+
+  const handleReset = () => {
+    setItemName("");
+    setPrice("");
+    setDescription("");
+    setCategory("");
+    setIsVeg(true);
+    setStockQuantity("50");
+    setIngredients("");
+    setSelectedImage(null);
+    setImagePreview(null);
+    setError("");
   };
 
   return (
@@ -134,15 +187,7 @@ export default function AddNewItems() {
             </div>
 
             <button
-              onClick={() => {
-                setItemName("");
-                setPrice("");
-                setDescription("");
-                setCategory("");
-                setIsVeg(true);
-                setStockQuantity("50");
-                setError("");
-              }}
+              onClick={handleReset}
               style={{
                 border: "none",
                 background: "transparent",
@@ -188,39 +233,66 @@ export default function AddNewItems() {
               style={inputStyle}
             >
               <option value="">Select category</option>
-              <option value="Biriyani">Biriyani</option>
-              <option value="Curry">Curry</option>
-              <option value="Kebab">Kebab</option>
-              <option value="Fish">Fish</option>
-              <option value="Chicken">Chicken</option>
-              <option value="Beef">Beef</option>
-              <option value="Vegetarian">Vegetarian</option>
-              <option value="Dessert">Dessert</option>
-              <option value="Snacks">Snacks</option>
-              <option value="Drinks">Drinks</option>
+              {categories.map((cat, index) => (
+                <option key={index} value={typeof cat === 'string' ? cat : cat.name}>
+                  {typeof cat === 'string' ? cat : cat.name}
+                </option>
+              ))}
+              <option value="Custom">+ Add New Category</option>
             </select>
 
+            {/* Custom category input */}
+            {category === "Custom" && (
+              <>
+                <Label>NEW CATEGORY NAME *</Label>
+                <input
+                  value=""
+                  onChange={(e) => setCategory(e.target.value)}
+                  placeholder="Enter new category name"
+                  style={inputStyle}
+                />
+              </>
+            )}
+
             {/* upload */}
-            <Label>UPLOAD PHOTO/VIDEO</Label>
+            <Label>UPLOAD PHOTO</Label>
 
             <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
               {/* preview */}
               <div style={previewBox}>
-                <img
-                  src="/src/assets/add-item-preview.png"
-                  alt="preview"
-                  style={{
-                    width: "100%",
+                {imagePreview ? (
+                  <img
+                    src={imagePreview}
+                    alt="preview"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     height: "100%",
-                    objectFit: "cover",
-                  }}
-                  onError={(e) => (e.currentTarget.style.display = "none")}
-                />
+                    color: "#999",
+                    fontSize: "0.7rem"
+                  }}>
+                    No Image
+                  </div>
+                )}
               </div>
 
               {/* add boxes */}
-              <AddBox />
-              <AddBox />
+              <AddBox onClick={() => document.getElementById('imageInput').click()} />
+              <input
+                id="imageInput"
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                style={{ display: "none" }}
+              />
             </div>
 
             {/* price */}
@@ -244,16 +316,39 @@ export default function AddNewItems() {
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="0.00"
+                  min="0"
+                  step="0.01"
                   style={{ ...inputStyle, paddingLeft: 24 }}
                 />
               </div>
 
-              <div style={{ display: "flex", gap: 14, fontSize: "0.7rem" }}>
-                <Check 
-                  label="Vegetarian" 
-                  checked={isVeg}
-                  onChange={(e) => setIsVeg(e.target.checked)}
-                />
+              <div style={{ display: "flex", gap: 14, fontSize: "0.7rem", alignItems: "center" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    color: "#9a9a9a",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    cursor: "pointer"
+                  }}
+                >
+                  <input 
+                    type="checkbox" 
+                    checked={isVeg}
+                    onChange={(e) => setIsVeg(e.target.checked)}
+                    style={{
+                      width: "16px",
+                      height: "16px",
+                      accentColor: ORANGE,
+                      cursor: "pointer"
+                    }}
+                  />
+                  <span style={{ color: isVeg ? "#4CAF50" : "#666" }}>
+                    {isVeg ? "🟢 Vegetarian" : "🔴 Non-Vegetarian"}
+                  </span>
+                </label>
               </div>
             </div>
 
@@ -264,59 +359,18 @@ export default function AddNewItems() {
               value={stockQuantity}
               onChange={(e) => setStockQuantity(e.target.value)}
               placeholder="Available quantity"
+              min="0"
               style={inputStyle}
             />
 
             {/* ingredients */}
-            <div style={{ marginTop: 14 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 8,
-                }}
-              >
-                <Label style={{ marginBottom: 0 }}>INGRIDIENTS</Label>
-                <button style={seeAllStyle}>See All ›</button>
-              </div>
-
-              <SubTitle>Basic</SubTitle>
-              <IngredientRow
-                items={[
-                  { name: "Salt", emoji: "🧂" },
-                  { name: "Chicken", emoji: "🍗" },
-                  { name: "Onion", emoji: "🧅" },
-                  { name: "Garlic", emoji: "🧄" },
-                  { name: "Peppers", emoji: "🌶️" },
-                  { name: "Ginger", emoji: "🫚" },
-                ]}
-              />
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginTop: 12,
-                  marginBottom: 8,
-                }}
-              >
-                <SubTitle style={{ marginBottom: 0 }}>Fruit</SubTitle>
-                <button style={seeAllStyle}>See All ›</button>
-              </div>
-
-              <IngredientRow
-                items={[
-                  { name: "Avocado", emoji: "🥑" },
-                  { name: "Apple", emoji: "🍎" },
-                  { name: "Blueberry", emoji: "🫐" },
-                  { name: "Broccoli", emoji: "🥦" },
-                  { name: "Orange", emoji: "🍊" },
-                  { name: "Walnut", emoji: "🌰" },
-                ]}
-              />
-            </div>
+            <Label>INGREDIENTS</Label>
+            <input
+              value={ingredients}
+              onChange={(e) => setIngredients(e.target.value)}
+              placeholder="List main ingredients (optional)"
+              style={inputStyle}
+            />
 
             {/* details */}
             <Label>DESCRIPTION *</Label>
@@ -341,20 +395,21 @@ export default function AddNewItems() {
             {/* save button */}
             <button
               onClick={handleSave}
-                style={{
+              disabled={loading}
+              style={{
                 marginTop: 18,
                 width: "100%",
                 height: 46,
                 borderRadius: 12,
                 border: "none",
-                background: ORANGE,
+                background: loading ? "#ccc" : ORANGE,
                 color: "#fff",
                 fontWeight: 800,
-                cursor: "pointer",
+                cursor: loading ? "not-allowed" : "pointer",
                 fontSize: "0.85rem",
               }}
             >
-              "SAVE FOOD ITEM"
+              {loading ? "SAVING..." : "SAVE FOOD ITEM"}
             </button>
           </div>
         </div>
@@ -380,25 +435,10 @@ function Label({ children, style }) {
   );
 }
 
-function SubTitle({ children, style }) {
+function AddBox({ onClick }) {
   return (
     <div
-      style={{
-        fontSize: "0.7rem",
-        fontWeight: 800,
-        color: "#444",
-        marginBottom: 8,
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function AddBox() {
-  return (
-    <div
+      onClick={onClick}
       style={{
         width: 86,
         height: 72,
@@ -411,6 +451,7 @@ function AddBox() {
         flexDirection: "column",
         color: "#8b91a6",
         fontSize: "0.7rem",
+        cursor: "pointer",
       }}
     >
       <div
@@ -427,66 +468,9 @@ function AddBox() {
           fontSize: "1rem",
         }}
       >
-        ☁️
+        📷
       </div>
-      Add
-    </div>
-  );
-}
-
-function Check({ label, checked, onChange }) {
-  return (
-    <label
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        color: "#9a9a9a",
-        fontWeight: 600,
-        whiteSpace: "nowrap",
-      }}
-    >
-      <input 
-        type="checkbox" 
-        checked={checked} 
-        onChange={onChange}
-      />
-      {label}
-    </label>
-  );
-}
-
-function IngredientRow({ items }) {
-  return (
-    <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
-      {items.map((it) => (
-        <div
-          key={it.name}
-          style={{
-            width: 46,
-            textAlign: "center",
-            fontSize: "0.6rem",
-            color: "#777",
-          }}
-        >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              margin: "0 auto",
-              borderRadius: "50%",
-              background: "#f6f7fb",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "1rem",
-            }}
-          >
-            {it.emoji}
-          </div>
-          <div style={{ marginTop: 4 }}>{it.name}</div>
-        </div>
-      ))}
+      Add Photo
     </div>
   );
 }
@@ -510,12 +494,4 @@ const previewBox = {
   overflow: "hidden",
   background: "#f6f7fb",
   flexShrink: 0,
-};
-
-const seeAllStyle = {
-  border: "none",
-  background: "transparent",
-  cursor: "pointer",
-  color: "#9a9a9a",
-  fontSize: "0.7rem",
 };

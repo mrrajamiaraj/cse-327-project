@@ -367,7 +367,7 @@ export default function AddAddress() {
               transition: "all 0.2s ease",
             }}
           >
-editAddress ? "✓ UPDATE ADDRESS" : "✓ SAVE ADDRESS"
+            {editAddress ? "✓ UPDATE ADDRESS" : "✓ SAVE ADDRESS"}
           </button>
         </form>
       </div>

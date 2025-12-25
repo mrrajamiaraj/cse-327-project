@@ -42,6 +42,9 @@ import RiderOrderPreview from "./pages/RiderOrderPreview.jsx";
 // Rider customer chat
 import RiderCustomerChat from "./pages/RiderCustomerChat.jsx";
 
+// Rider navigation
+import RiderNavigationPage from "./pages/RiderNavigationPage.jsx";
+
 // Order tracking
 import OrderTracking from "./pages/OrderTracking.jsx";
 
@@ -181,6 +184,7 @@ export default function App() {
           <Route path="/rider-profile" element={<RiderProfile />} />
           <Route path="/rider/order-preview/:orderId" element={<RiderOrderPreview />} />
           <Route path="/rider/chat/:orderId" element={<RiderCustomerChat />} />
+          <Route path="/rider-navigation/:orderId" element={<RiderNavigationPage />} />
 
           {/* Order Tracking */}
           <Route path="/order-tracking/:orderId" element={<OrderTracking />} />

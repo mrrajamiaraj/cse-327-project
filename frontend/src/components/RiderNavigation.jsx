@@ -1,75 +1,68 @@
 // src/components/RiderNavigation.jsx
 import { useState, useEffect } from "react";
+import DeliveryTrackingMap from './DeliveryTrackingMap';
+import locationService from '../services/locationService';
 import api from "../services/api";
 
 const ORANGE = "#ff7a00";
 
-export default function RiderNavigation({ orderId, currentLocation, onLocationUpdate }) {
+export default function RiderNavigation({ orderId }) {
   const [order, setOrder] = useState(null);
-  const [destination, setDestination] = useState(null);
-  const [directions, setDirections] = useState(null);
-  const [isNavigating, setIsNavigating] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [isTracking, setIsTracking] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [routeInfo, setRouteInfo] = useState(null);
 
   useEffect(() => {
     fetchOrderDetails();
+    startLocationTracking();
+    
+    return () => {
+      locationService.stopTracking();
+    };
   }, [orderId]);
-
-  useEffect(() => {
-    if (currentLocation && onLocationUpdate) {
-      // Send location update to backend
-      updateRiderLocation();
-    }
-  }, [currentLocation]);
 
   const fetchOrderDetails = async () => {
     try {
-      const response = await api.get(`/rider/current-order/`);
+      setLoading(true);
+      const response = await api.get(`/rider/orders/${orderId}/`);
       setOrder(response.data);
-      
-      // Set destination based on order status
-      if (response.data.status === 'rider_assigned') {
-        // Going to restaurant
-        setDestination({
-          name: response.data.restaurant_name,
-          address: response.data.restaurant_address,
-          type: 'restaurant'
-        });
-      } else if (response.data.status === 'picked_up' || response.data.status === 'out_for_delivery') {
-        // Going to customer
-        setDestination({
-          name: response.data.customer_name,
-          address: response.data.delivery_address,
-          type: 'customer'
-        });
-      }
+      setError(null);
     } catch (error) {
       console.error("Error fetching order details:", error);
+      setError('Failed to load order information');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateRiderLocation = async () => {
+  const startLocationTracking = () => {
     try {
-      await api.post('/rider/location/', {
-        lat: currentLocation.lat,
-        lng: currentLocation.lng,
-        heading: currentLocation.heading,
-        speed: currentLocation.speed,
-        accuracy: currentLocation.accuracy,
-        is_moving: currentLocation.speed > 1 // Consider moving if speed > 1 km/h
+      // Subscribe to location updates
+      const unsubscribe = locationService.subscribe((location, error) => {
+        if (error) {
+          console.error('Location tracking error:', error);
+          setError('Location tracking failed');
+          return;
+        }
+        
+        if (location) {
+          setCurrentLocation(location);
+          setIsTracking(true);
+        }
       });
-    } catch (error) {
-      console.error("Error updating location:", error);
-    }
-  };
 
-  const startNavigation = () => {
-    if (!destination) return;
-    
-    setIsNavigating(true);
-    
-    // Open Google Maps for navigation
-    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination.address)}&travelmode=driving`;
-    window.open(googleMapsUrl, '_blank');
+      // Start tracking with frequent updates for riders
+      locationService.startTracking({
+        updateInterval: 3000 // Update every 3 seconds
+      });
+
+      return unsubscribe;
+    } catch (error) {
+      console.error('Failed to start location tracking:', error);
+      setError('Could not start location tracking');
+    }
   };
 
   const updateOrderStatus = async (newStatus) => {
@@ -80,14 +73,51 @@ export default function RiderNavigation({ orderId, currentLocation, onLocationUp
       fetchOrderDetails(); // Refresh order details
     } catch (error) {
       console.error("Error updating order status:", error);
+      alert('Failed to update order status');
     }
   };
 
-  if (!order || !destination) {
+  const handleRouteUpdate = (info) => {
+    setRouteInfo(info);
+  };
+
+  if (loading) {
     return (
       <div style={navigationCard}>
-        <div style={{ textAlign: "center", padding: 20 }}>
-          <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>🗺️</div>
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>🔄</div>
+          <div style={{ fontSize: "0.9rem", color: "#666" }}>
+            Loading navigation...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={navigationCard}>
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>❌</div>
+          <div style={{ fontSize: "0.9rem", color: "#ff4444", marginBottom: 16 }}>
+            {error}
+          </div>
+          <button 
+            onClick={() => window.location.reload()}
+            style={statusButton}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div style={navigationCard}>
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: "1.5rem", marginBottom: 8 }}>📦</div>
           <div style={{ fontSize: "0.9rem", color: "#666" }}>
             No active delivery
           </div>
@@ -96,31 +126,108 @@ export default function RiderNavigation({ orderId, currentLocation, onLocationUp
     );
   }
 
+  // Prepare locations for the map
+  const restaurantLocation = order.restaurant ? {
+    lat: order.restaurant.lat || 23.8103,
+    lng: order.restaurant.lng || 90.4125,
+    name: order.restaurant.name,
+    address: order.restaurant.address
+  } : null;
+
+  const customerLocation = order.address ? {
+    lat: order.address.lat,
+    lng: order.address.lng,
+    address: order.address.address
+  } : order.delivery_location ? {
+    lat: order.delivery_location.lat,
+    lng: order.delivery_location.lng,
+    address: order.delivery_location.address || 'Customer Location'
+  } : null;
+
+  // Determine destination based on order status
+  const getDestination = () => {
+    if (order.status === 'rider_assigned') {
+      return { ...restaurantLocation, type: 'restaurant' };
+    } else if (['picked_up', 'out_for_delivery'].includes(order.status)) {
+      return { ...customerLocation, type: 'customer' };
+    }
+    return null;
+  };
+
+  const destination = getDestination();
+
   return (
     <div style={navigationCard}>
-      {/* Destination Info */}
-      <div style={destinationHeader}>
-        <div style={destinationIcon}>
-          {destination.type === 'restaurant' ? '🏪' : '🏠'}
-        </div>
-        <div style={destinationInfo}>
-          <div style={destinationTitle}>
-            {destination.type === 'restaurant' ? 'Pickup from' : 'Deliver to'}
+      {/* Destination Header */}
+      {destination && (
+        <div style={destinationHeader}>
+          <div style={destinationIcon}>
+            {destination.type === 'restaurant' ? '🏪' : '🏠'}
           </div>
-          <div style={destinationName}>{destination.name}</div>
-          <div style={destinationAddress}>{destination.address}</div>
+          <div style={destinationInfo}>
+            <div style={destinationTitle}>
+              {destination.type === 'restaurant' ? 'Pickup from' : 'Deliver to'}
+            </div>
+            <div style={destinationName}>{destination.name || 'Destination'}</div>
+            <div style={destinationAddress}>{destination.address}</div>
+          </div>
         </div>
+      )}
+
+      {/* Interactive Map */}
+      <div style={{ position: 'relative', height: '300px', marginBottom: 16 }}>
+        <DeliveryTrackingMap
+          restaurantLocation={restaurantLocation}
+          customerLocation={customerLocation}
+          riderLocation={currentLocation}
+          showRoute={true}
+          userType="rider"
+          onRouteUpdate={handleRouteUpdate}
+          style={{ height: '100%', width: '100%' }}
+        />
+        
+        {/* Route Info Overlay */}
+        {routeInfo && (
+          <div style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            background: 'rgba(255, 255, 255, 0.95)',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            fontSize: '0.8rem',
+            fontWeight: '600',
+            color: '#333',
+            zIndex: 1000
+          }}>
+            📍 {routeInfo.distance} km • ⏱️ {routeInfo.time} min
+          </div>
+        )}
+        
+        {/* Location Status */}
+        {!isTracking && (
+          <div style={{
+            position: 'absolute',
+            bottom: '10px',
+            left: '10px',
+            right: '10px',
+            background: 'rgba(255, 68, 68, 0.9)',
+            color: 'white',
+            padding: '8px 12px',
+            borderRadius: '8px',
+            fontSize: '0.8rem',
+            fontWeight: '600',
+            textAlign: 'center',
+            zIndex: 1000
+          }}>
+            ⚠️ Location tracking disabled
+          </div>
+        )}
       </div>
 
-      {/* Navigation Controls */}
+      {/* Action Buttons */}
       <div style={navigationControls}>
-        <button
-          onClick={startNavigation}
-          style={navigationButton}
-        >
-          🧭 Start Navigation
-        </button>
-        
         {order.status === 'rider_assigned' && (
           <button
             onClick={() => updateOrderStatus('picked_up')}
@@ -147,6 +254,16 @@ export default function RiderNavigation({ orderId, currentLocation, onLocationUp
             ✅ Mark as Delivered
           </button>
         )}
+        
+        {/* Chat Button */}
+        {['rider_assigned', 'picked_up', 'out_for_delivery'].includes(order.status) && (
+          <button
+            onClick={() => window.open(`/rider/chat/${orderId}`, '_blank')}
+            style={chatButton}
+          >
+            💬 Chat with Customer
+          </button>
+        )}
       </div>
 
       {/* Order Summary */}
@@ -166,11 +283,11 @@ export default function RiderNavigation({ orderId, currentLocation, onLocationUp
         </div>
         <div style={summaryRow}>
           <span>Items:</span>
-          <span>{order.items_count} items</span>
+          <span>{order.items?.length || 0} items</span>
         </div>
       </div>
 
-      {/* Location Status */}
+      {/* Current Location Status */}
       {currentLocation && (
         <div style={locationStatus}>
           <div style={{ fontSize: "0.75rem", color: "#666", marginBottom: 4 }}>
@@ -179,11 +296,13 @@ export default function RiderNavigation({ orderId, currentLocation, onLocationUp
           <div style={{ fontSize: "0.8rem" }}>
             📍 {currentLocation.lat.toFixed(4)}, {currentLocation.lng.toFixed(4)}
           </div>
-          {currentLocation.speed && (
-            <div style={{ fontSize: "0.75rem", color: ORANGE, marginTop: 4 }}>
-              🚴 Speed: {currentLocation.speed.toFixed(1)} km/h
-            </div>
-          )}
+          <div style={{ fontSize: "0.75rem", color: ORANGE, marginTop: 4 }}>
+            {currentLocation.is_moving ? '🚴 Moving' : '⏸️ Stopped'}
+            {currentLocation.speed && ` • ${Math.round(currentLocation.speed * 3.6)} km/h`}
+          </div>
+          <div style={{ fontSize: "0.7rem", color: "#999", marginTop: 2 }}>
+            Updated: {new Date(currentLocation.timestamp).toLocaleTimeString()}
+          </div>
         </div>
       )}
     </div>
@@ -210,7 +329,7 @@ const destinationHeader = {
 };
 
 const destinationIcon = {
-  fontSize: "2rem",
+  fontSize: "1.5rem",
   width: 50,
   height: 50,
   borderRadius: "50%",
@@ -252,17 +371,6 @@ const navigationControls = {
   marginBottom: 16
 };
 
-const navigationButton = {
-  padding: "12px 16px",
-  borderRadius: 8,
-  border: "none",
-  background: "#007bff",
-  color: "#fff",
-  fontSize: "0.9rem",
-  fontWeight: 600,
-  cursor: "pointer"
-};
-
 const statusButton = {
   padding: "12px 16px",
   borderRadius: 8,
@@ -279,6 +387,17 @@ const deliveredButton = {
   borderRadius: 8,
   border: "none",
   background: "#28a745",
+  color: "#fff",
+  fontSize: "0.9rem",
+  fontWeight: 600,
+  cursor: "pointer"
+};
+
+const chatButton = {
+  padding: "12px 16px",
+  borderRadius: 8,
+  border: "none",
+  background: "#007bff",
   color: "#fff",
   fontSize: "0.9rem",
   fontWeight: 600,

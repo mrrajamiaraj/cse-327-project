@@ -138,31 +138,46 @@ class RestaurantSerializer(serializers.ModelSerializer):
     def get_banner(self, obj):
         """Return full URL for banner image"""
         if obj.banner:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.banner.url)
-            return obj.banner.url
+            try:
+                request = self.context.get('request')
+                if request and hasattr(request, 'build_absolute_uri'):
+                    return request.build_absolute_uri(obj.banner.url)
+                else:
+                    # Fallback to relative URL
+                    return obj.banner.url
+            except Exception as e:
+                # Log the error and return relative URL as fallback
+                print(f"Error building absolute URI for {obj.name}: {e}")
+                return obj.banner.url if obj.banner else None
         return None
     
     def get_rating(self, obj):
         """Get calculated average rating from reviews"""
-        return obj.get_average_rating()
+        try:
+            return obj.get_average_rating()
+        except Exception as e:
+            print(f"Error getting rating for {obj.name}: {e}")
+            return 0.0
     
     def get_delivery_time(self, obj):
         """Get calculated delivery time based on user's location"""
-        # Try to get customer location from context
-        request = self.context.get('request')
-        if request and hasattr(request, 'user') and request.user.is_authenticated:
-            # Try to get user's default address
-            try:
-                address = Address.objects.filter(user=request.user, is_default=True).first()
-                if address:
-                    return obj.calculate_delivery_time(address.lat, address.lng)
-            except:
-                pass
-        
-        # Fallback: use a default time
-        return f"{obj.prep_time_minutes + 10} min"
+        try:
+            # Try to get customer location from context
+            request = self.context.get('request')
+            if request and hasattr(request, 'user') and request.user.is_authenticated:
+                # Try to get user's default address
+                try:
+                    address = Address.objects.filter(user=request.user, is_default=True).first()
+                    if address:
+                        return obj.calculate_delivery_time(address.lat, address.lng)
+                except:
+                    pass
+            
+            # Fallback: use a default time
+            return f"{obj.prep_time_minutes + 10} min"
+        except Exception as e:
+            print(f"Error calculating delivery time for {obj.name}: {e}")
+            return "30 min"
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -174,22 +189,68 @@ class AddonSerializer(serializers.ModelSerializer):
         model = Addon
         fields = ['id', 'name', 'price']
 
-class FoodSerializer(serializers.ModelSerializer):
-    available_addons = AddonSerializer(many=True, read_only=True)
-    image = serializers.SerializerMethodField()
+# Separate serializer for menu item creation to avoid conflicts
+class MenuItemCreateSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(write_only=True, required=False)
     
     class Meta:
         model = Food
-        fields = '__all__'
+        fields = ['name', 'description', 'price', 'image', 'is_veg', 'ingredients', 
+                 'stock_quantity', 'is_available', 'category_name']
+        # restaurant field is handled in perform_create
     
-    def get_image(self, obj):
-        """Return full URL for food image"""
-        if obj.image:
+    def create(self, validated_data):
+        # Handle category creation by name
+        category_name = validated_data.pop('category_name', None)
+        if category_name:
+            category, created = Category.objects.get_or_create(name=category_name)
+            validated_data['category'] = category
+        
+        # Get restaurant from validated_data (passed via save()) or request context
+        if 'restaurant' not in validated_data:
             request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
-        return None
+            if request and hasattr(request, 'user') and request.user and request.user.is_authenticated:
+                try:
+                    restaurant = Restaurant.objects.get(owner=request.user)
+                    validated_data['restaurant'] = restaurant
+                except Restaurant.DoesNotExist:
+                    raise serializers.ValidationError("No restaurant found for this user")
+            else:
+                raise serializers.ValidationError("Authentication required")
+        
+        return super().create(validated_data)
+
+class FoodSerializer(serializers.ModelSerializer):
+    available_addons = AddonSerializer(many=True, read_only=True)
+    image = serializers.ImageField(required=False, allow_null=True)
+    category_name = serializers.CharField(write_only=True, required=False)
+    category = CategorySerializer(read_only=True)
+    
+    class Meta:
+        model = Food
+        fields = ['id', 'name', 'description', 'price', 'image', 'is_veg', 'ingredients', 
+                 'stock_quantity', 'is_available', 'category', 'category_name', 'available_addons']
+        # restaurant field is handled in perform_create, not in serializer
+    
+    def create(self, validated_data):
+        # Handle category creation by name
+        category_name = validated_data.pop('category_name', None)
+        if category_name:
+            category, created = Category.objects.get_or_create(name=category_name)
+            validated_data['category'] = category
+        
+        # Get restaurant from request context
+        request = self.context.get('request')
+        if request and hasattr(request, 'user') and request.user.is_authenticated:
+            try:
+                restaurant = Restaurant.objects.get(owner=request.user)
+                validated_data['restaurant'] = restaurant
+            except Restaurant.DoesNotExist:
+                raise serializers.ValidationError("No restaurant found for this user")
+        else:
+            raise serializers.ValidationError("Authentication required")
+        
+        return super().create(validated_data)
 
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:

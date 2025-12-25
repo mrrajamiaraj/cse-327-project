@@ -380,6 +380,16 @@ export default function OrderTracking() {
               </button>
             )}
             
+            {/* View chat history for delivered orders */}
+            {order.status === 'delivered' && trackingData?.rider && (
+              <button 
+                style={{...chatButton, background: '#6c757d'}}
+                onClick={() => navigate(`/chat/${orderId}`)}
+              >
+                📋 View Chat History
+              </button>
+            )}
+            
             {order.status === 'delivered' && (
               <button style={rateButton}>
                 Rate Order

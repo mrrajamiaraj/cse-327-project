@@ -6,7 +6,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 from core.views import *
 from django.urls import path
-from core.views import RegisterView, LoginView
+from core.views import RegisterView, LoginView, TestView
 from core.search_views import SearchView
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -28,6 +28,7 @@ router.register(r'restaurant/reviews', RestaurantReviewViewSet, basename='restau
 router.register(r'rider/orders/available', RiderAvailableOrderViewSet, basename='rider-available-order')
 router.register(r'rider/orders/history', RiderOrderHistoryViewSet, basename='rider-order-history')
 router.register(r'rider/orders', RiderOrderViewSet, basename='rider-order')
+# Location endpoints are handled by the RiderOrderViewSet actions
 router.register(r'admin/login-logs', LoginLogViewSet, basename='login-log')
 router.register(r'admin/users', AdminUserViewSet, basename='admin-user')
 router.register(r'admin/restaurants', AdminRestaurantViewSet, basename='admin-restaurant')
@@ -37,6 +38,7 @@ router.register(r'admin/reviews', AdminReviewViewSet, basename='admin-review')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include(router.urls)),
+    path('api/v1/test/', TestView.as_view(), name='test'),
     path('api/v1/auth/register/', RegisterView.as_view(), name='register'),
     path('api/v1/auth/login/', LoginView.as_view(), name='login'),
     path('api/v1/auth/token/refresh/', TokenRefreshView.as_view()),

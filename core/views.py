@@ -14,6 +14,20 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import *
 from .serializers import *
 
+print("🔧 Views.py loaded successfully")  # Debug print
+
+# Simple test view
+class TestView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        return Response({
+            "message": "Test endpoint works",
+            "user": request.user.email,
+            "user_id": request.user.id,
+            "is_authenticated": request.user.is_authenticated
+        })
+
 # Auth
 class RegisterView(APIView):
     permission_classes = [AllowAny]
@@ -171,7 +185,7 @@ class HomeView(viewsets.ViewSet):
         # Mock data for Figma home
         banners = [{'id': 1, 'image': 'banner.jpg'}]
         popular_foods = Food.objects.order_by('-id')[:5]
-        nearby_restaurants = Restaurant.objects.filter(is_approved=True)[:10]  # Increased to show more restaurants
+        nearby_restaurants = Restaurant.objects.filter(is_approved=True)  # Show all approved restaurants
         categories = Category.objects.all()  # Return all categories
         return Response({
             'banners': banners,
@@ -538,15 +552,84 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get', 'post'])
     def chat(self, request, pk=None):
+        """
+        Chat endpoint for customer to communicate with rider
+        RESTRICTIONS:
+        - Only customer-rider chat allowed (no restaurant involvement)
+        - Chat only available when rider is assigned (rider_assigned, picked_up, out_for_delivery)
+        - After delivery, chat becomes read-only (can view history but not send messages)
+        """
+        if request.user.role != 'customer':
+            return Response({'error': 'Access denied. Only customers can access this chat.'}, status=403)
+        
         order = self.get_object()
+        
+        # Verify this is the customer's order
+        if order.user != request.user:
+            return Response({'error': 'You can only access chat for your own orders'}, status=403)
+        
+        # Check if chat is available for this order status
+        chat_available_statuses = ['rider_assigned', 'picked_up', 'out_for_delivery']
+        read_only_statuses = ['delivered']
+        
+        if order.status not in chat_available_statuses + read_only_statuses:
+            return Response({
+                'error': 'Chat not available for this order status',
+                'status': order.status,
+                'message': 'Chat is only available when a rider is assigned to your order'
+            }, status=400)
+        
+        # Check if rider is assigned
+        if not order.rider:
+            return Response({
+                'error': 'No rider assigned to this order yet',
+                'message': 'Chat will be available once a rider accepts your order'
+            }, status=400)
+        
         if request.method == 'GET':
-            messages = OrderChatMessage.objects.filter(order=order)
-            return Response(OrderChatMessageSerializer(messages, many=True).data)
-        serializer = OrderChatMessageSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(order=order, sender=request.user)
-            return Response(serializer.data, status=201)
-        return Response(serializer.errors, status=400)
+            # Get chat messages for this order (always allowed for history)
+            messages = OrderChatMessage.objects.filter(
+                order=order
+            ).filter(
+                # Only show messages between rider and customer (no restaurant messages)
+                sender__role__in=['rider', 'customer']
+            ).order_by('created_at')
+            
+            return Response({
+                'messages': OrderChatMessageSerializer(messages, many=True).data,
+                'chat_status': 'active' if order.status in chat_available_statuses else 'read_only',
+                'order_status': order.status,
+                'rider_name': f"{order.rider.first_name} {order.rider.last_name}".strip() or "Your Rider"
+            })
+        
+        elif request.method == 'POST':
+            # Check if chat is read-only (delivered orders)
+            if order.status in read_only_statuses:
+                return Response({
+                    'error': 'Chat is read-only for delivered orders',
+                    'message': 'You can view chat history but cannot send new messages'
+                }, status=400)
+            
+            # Only allow sending messages during active delivery statuses
+            if order.status not in chat_available_statuses:
+                return Response({
+                    'error': 'Cannot send messages for this order status',
+                    'status': order.status
+                }, status=400)
+            
+            # Send a new message
+            serializer = OrderChatMessageSerializer(data=request.data)
+            if serializer.is_valid():
+                message = serializer.save(order=order, sender=request.user)
+                
+                # Create notification for rider
+                Notification.objects.create(
+                    user=order.rider,
+                    message=f'New message from customer for order #{order.id}'
+                )
+                
+                return Response(OrderChatMessageSerializer(message).data, status=201)
+            return Response(serializer.errors, status=400)
 
 class FavoriteViewSet(viewsets.ModelViewSet):
     serializer_class = FavoriteSerializer
@@ -586,15 +669,141 @@ class AIChatViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def create(self, request):
-        message = request.data['message']
-        # Mock AI for Figma mood suggestion
-        response = "Based on your mood, try Pizza!"
-        AIChatMessage.objects.create(user=request.user, message=message, response=response)
-        return Response({'suggestion': response, 'recommended_foods': [{'id': 1, 'name': 'Pizza'}]})
+        from .huggingface_service import HuggingFaceService
+        
+        message = request.data.get('message', '')
+        user_location = request.data.get('location', None)
+        session_id = request.data.get('session_id', None)
+        
+        if not message.strip():
+            return Response({'error': 'Message cannot be empty'}, status=400)
+        
+        # Get or create chat session
+        if session_id:
+            try:
+                session = AIChatSession.objects.get(id=session_id, user=request.user)
+            except AIChatSession.DoesNotExist:
+                session = AIChatSession.objects.create(user=request.user)
+        else:
+            session = AIChatSession.objects.create(user=request.user)
+        
+        # Update session title if it's the first message
+        if not session.messages.exists():
+            # Generate title from first message
+            title = message[:50] + "..." if len(message) > 50 else message
+            session.title = title
+            session.save()
+        
+        try:
+            # Initialize Hugging Face service
+            hf_service = HuggingFaceService()
+            
+            # Get AI response and recommendations
+            ai_result = hf_service.get_food_suggestions(message, user_location)
+            
+            # Save chat message to database
+            chat_message = AIChatMessage.objects.create(
+                session=session,
+                user=request.user, 
+                message=message, 
+                response=ai_result['response']
+            )
+            
+            # Update session timestamp
+            session.save()
+            
+            return Response({
+                'id': chat_message.id,
+                'session_id': session.id,
+                'message': message,
+                'response': ai_result['response'],
+                'recommendations': ai_result['recommendations'],
+                'created_at': chat_message.created_at.isoformat()
+            })
+            
+        except Exception as e:
+            print(f"AI Chat Error: {e}")
+            
+            # Fallback response
+            fallback_response = "I'm having trouble connecting right now, but I'd love to help you find great food! What kind of mood are you in today?"
+            
+            chat_message = AIChatMessage.objects.create(
+                session=session,
+                user=request.user, 
+                message=message, 
+                response=fallback_response
+            )
+            
+            # Update session timestamp
+            session.save()
+            
+            return Response({
+                'id': chat_message.id,
+                'session_id': session.id,
+                'message': message,
+                'response': fallback_response,
+                'recommendations': [],
+                'created_at': chat_message.created_at.isoformat(),
+                'error': 'AI service temporarily unavailable'
+            })
+
+    @action(detail=False, methods=['get'])
+    def sessions(self, request):
+        """Get all chat sessions for the user"""
+        sessions = AIChatSession.objects.filter(user=request.user)
+        session_data = []
+        
+        for session in sessions:
+            session_data.append({
+                'id': session.id,
+                'title': session.title,
+                'preview': session.get_preview(),
+                'created_at': session.created_at.isoformat(),
+                'updated_at': session.updated_at.isoformat(),
+                'message_count': session.messages.count()
+            })
+        
+        return Response(session_data)
+
+    @action(detail=True, methods=['get'])
+    def messages(self, request, pk=None):
+        """Get all messages for a specific session"""
+        try:
+            session = AIChatSession.objects.get(id=pk, user=request.user)
+            messages = session.messages.all()
+            
+            message_data = []
+            for msg in messages:
+                message_data.append({
+                    'id': msg.id,
+                    'message': msg.message,
+                    'response': msg.response,
+                    'created_at': msg.created_at.isoformat()
+                })
+            
+            return Response({
+                'session_id': session.id,
+                'title': session.title,
+                'messages': message_data
+            })
+            
+        except AIChatSession.DoesNotExist:
+            return Response({'error': 'Session not found'}, status=404)
+
+    @action(detail=True, methods=['delete'])
+    def delete_session(self, request, pk=None):
+        """Delete a chat session"""
+        try:
+            session = AIChatSession.objects.get(id=pk, user=request.user)
+            session.delete()
+            return Response({'message': 'Session deleted successfully'})
+        except AIChatSession.DoesNotExist:
+            return Response({'error': 'Session not found'}, status=404)
 
     @action(detail=False, methods=['get'])
     def history(self, request):
-        messages = AIChatMessage.objects.filter(user=self.request.user)
+        """Legacy endpoint - get recent messages from all sessions"""
+        messages = AIChatMessage.objects.filter(user=self.request.user).order_by('-created_at')[:20]
         return Response(AIChatSerializer(messages, many=True).data)
 
 # Restaurant
@@ -613,34 +822,52 @@ class RestaurantProfileView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
 
-class CategoryViewSet(viewsets.ModelViewSet):
-    serializer_class = CategorySerializer
+class CategoryViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Category.objects.filter(restaurant__owner=self.request.user)
-
-    def perform_create(self, serializer):
-        restaurant = get_object_or_404(Restaurant, owner=self.request.user)
-        serializer.save(restaurant=restaurant)
+    
+    def list(self, request):
+        try:
+            categories = Category.objects.all().order_by('name')
+            serializer = CategorySerializer(categories, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
 
 class MenuItemViewSet(viewsets.ModelViewSet):
     serializer_class = FoodSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Food.objects.filter(restaurant__owner=self.request.user)
+        # Only show food items for the restaurant owned by the current user
+        try:
+            restaurant = Restaurant.objects.get(owner=self.request.user)
+            return Food.objects.filter(restaurant=restaurant).select_related('category', 'restaurant')
+        except Restaurant.DoesNotExist:
+            return Food.objects.none()
+    
+    def get_serializer_class(self):
+        """Use different serializer for creation"""
+        if self.action == 'create':
+            return MenuItemCreateSerializer
+        return FoodSerializer
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            # Set restaurant in validated_data before calling perform_create
+            try:
+                restaurant = Restaurant.objects.get(owner=request.user)
+                serializer.validated_data['restaurant'] = restaurant
+            except Restaurant.DoesNotExist:
+                return Response({"error": "No restaurant found for this user"}, status=400)
+            
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def perform_create(self, serializer):
-        restaurant = get_object_or_404(Restaurant, owner=self.request.user)
-        
-        # Handle category creation by name
-        category_name = self.request.data.get('category_name')
-        if category_name:
-            category, created = Category.objects.get_or_create(name=category_name)
-            serializer.save(restaurant=restaurant, category=category)
-        else:
-            serializer.save(restaurant=restaurant)
+        serializer.save()
 
 class RestaurantOrderViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = OrderSerializer
@@ -761,15 +988,14 @@ class RestaurantOrderViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['get', 'post'])
     def chat(self, request, pk=None):
-        order = self.get_object()
-        if request.method == 'GET':
-            messages = OrderChatMessage.objects.filter(order=order)
-            return Response(OrderChatMessageSerializer(messages, many=True).data)
-        serializer = OrderChatMessageSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(order=order, sender=request.user)
-            return Response(serializer.data, status=201)
-        return Response(serializer.errors, status=400)
+        """
+        Chat is not available for restaurants
+        Only riders and customers can chat with each other
+        """
+        return Response({
+            'error': 'Chat not available for restaurants',
+            'message': 'Only riders and customers can chat with each other during delivery'
+        }, status=403)
 
 class RestaurantAnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1602,13 +1828,13 @@ class RiderOrderUpdateView(APIView):
         
         new_status = request.data.get('status')
         valid_transitions = {
-            'rider_assigned': 'picked_up',
-            'picked_up': 'out_for_delivery',
-            'out_for_delivery': 'delivered'
+            'rider_assigned': ['picked_up'],
+            'picked_up': ['out_for_delivery'],
+            'out_for_delivery': ['delivered']
         }
         
         if order.status not in valid_transitions:
-            return Response({'error': 'Invalid order status'}, status=400)
+            return Response({'error': 'Invalid current order status'}, status=400)
         
         if new_status not in valid_transitions.get(order.status, []):
             return Response({'error': f'Cannot change status from {order.status} to {new_status}'}, status=400)
@@ -1654,9 +1880,82 @@ class RiderOrderUpdateView(APIView):
         return Response({
             'status': order.status, 
             'message': 'Order status updated successfully',
-            'eta': order.eta,
-            'estimated_delivery_time': order.estimated_delivery_time
+            'estimated_delivery_time': order.estimated_delivery_time,
+            'eta': order.eta
         })
+
+    @action(detail=False, methods=['post'])
+    def update_location(self, request):
+        """
+        Update rider's current location for real-time tracking
+        """
+        if request.user.role != 'rider':
+            return Response({'error': 'Access denied'}, status=403)
+        
+        lat = request.data.get('lat')
+        lng = request.data.get('lng')
+        
+        if not lat or not lng:
+            return Response({'error': 'Latitude and longitude required'}, status=400)
+        
+        # Update or create rider location
+        rider_location, created = RiderLocation.objects.update_or_create(
+            rider=request.user,
+            defaults={
+                'lat': float(lat),
+                'lng': float(lng),
+                'heading': request.data.get('heading'),
+                'speed': request.data.get('speed'),
+                'accuracy': request.data.get('accuracy'),
+                'is_moving': request.data.get('is_moving', False)
+            }
+        )
+        
+        return Response({
+            'message': 'Location updated successfully',
+            'location': {
+                'lat': rider_location.lat,
+                'lng': rider_location.lng,
+                'is_moving': rider_location.is_moving,
+                'updated_at': rider_location.updated_at
+            }
+        })
+
+    @action(detail=False, methods=['get'])
+    def get_location(self, request):
+        """
+        Get rider's current location
+        """
+        rider_id = request.query_params.get('rider_id')
+        
+        if not rider_id:
+            # Get current user's location if no rider_id specified
+            if request.user.role != 'rider':
+                return Response({'error': 'Access denied'}, status=403)
+            rider = request.user
+        else:
+            try:
+                rider = User.objects.get(id=rider_id, role='rider')
+            except User.DoesNotExist:
+                return Response({'error': 'Rider not found'}, status=404)
+        
+        try:
+            location = RiderLocation.objects.get(rider=rider)
+            return Response({
+                'rider_id': rider.id,
+                'name': f"{rider.first_name} {rider.last_name}".strip() or rider.email,
+                'location': {
+                    'lat': location.lat,
+                    'lng': location.lng,
+                    'heading': location.heading,
+                    'speed': location.speed,
+                    'accuracy': location.accuracy,
+                    'is_moving': location.is_moving,
+                    'last_updated': location.updated_at
+                }
+            })
+        except RiderLocation.DoesNotExist:
+            return Response({'error': 'Location not available'}, status=404)
 
 class RiderOrderHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = OrderSerializer
@@ -1728,9 +2027,13 @@ class RiderOrderViewSet(viewsets.ReadOnlyModelViewSet):
     def chat(self, request, pk=None):
         """
         Chat endpoint for rider to communicate with customer
+        RESTRICTIONS:
+        - Only rider-customer chat allowed (no restaurant involvement)
+        - Chat only available when rider is assigned (rider_assigned, picked_up, out_for_delivery)
+        - After delivery, chat becomes read-only (can view history but not send messages)
         """
         if request.user.role != 'rider':
-            return Response({'error': 'Access denied'}, status=403)
+            return Response({'error': 'Access denied. Only riders can access this chat.'}, status=403)
         
         order = self.get_object()
         
@@ -1738,16 +2041,47 @@ class RiderOrderViewSet(viewsets.ReadOnlyModelViewSet):
         if order.rider != request.user:
             return Response({'error': 'You are not assigned to this order'}, status=403)
         
-        # Only allow chat when rider is assigned or actively delivering
-        if order.status not in ['rider_assigned', 'picked_up', 'out_for_delivery']:
-            return Response({'error': 'Chat not available for this order status'}, status=400)
+        # Check if chat is available for this order status
+        chat_available_statuses = ['rider_assigned', 'picked_up', 'out_for_delivery']
+        read_only_statuses = ['delivered']
+        
+        if order.status not in chat_available_statuses + read_only_statuses:
+            return Response({
+                'error': 'Chat not available for this order status',
+                'status': order.status,
+                'message': 'Chat is only available when rider is assigned and actively delivering'
+            }, status=400)
         
         if request.method == 'GET':
-            # Get chat messages for this order
-            messages = OrderChatMessage.objects.filter(order=order).order_by('created_at')
-            return Response(OrderChatMessageSerializer(messages, many=True).data)
+            # Get chat messages for this order (always allowed for history)
+            messages = OrderChatMessage.objects.filter(
+                order=order
+            ).filter(
+                # Only show messages between rider and customer (no restaurant messages)
+                sender__role__in=['rider', 'customer']
+            ).order_by('created_at')
+            
+            return Response({
+                'messages': OrderChatMessageSerializer(messages, many=True).data,
+                'chat_status': 'active' if order.status in chat_available_statuses else 'read_only',
+                'order_status': order.status
+            })
         
         elif request.method == 'POST':
+            # Check if chat is read-only (delivered orders)
+            if order.status in read_only_statuses:
+                return Response({
+                    'error': 'Chat is read-only for delivered orders',
+                    'message': 'You can view chat history but cannot send new messages'
+                }, status=400)
+            
+            # Only allow sending messages during active delivery statuses
+            if order.status not in chat_available_statuses:
+                return Response({
+                    'error': 'Cannot send messages for this order status',
+                    'status': order.status
+                }, status=400)
+            
             # Send a new message
             serializer = OrderChatMessageSerializer(data=request.data)
             if serializer.is_valid():

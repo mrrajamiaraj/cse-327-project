@@ -12,12 +12,14 @@ export default function ChatInterface() {
   const [error, setError] = useState("");
   const [orderInfo, setOrderInfo] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [chatStatus, setChatStatus] = useState('active'); // 'active' or 'read_only'
+  const [riderName, setRiderName] = useState('');
   const messagesEndRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (!user.id) {
+    if (!user.id || user.role !== 'customer') {
       navigate("/login");
       return;
     }
@@ -35,41 +37,54 @@ export default function ChatInterface() {
 
   const fetchChatData = async (user = currentUser) => {
     try {
-      
-      // Determine API path based on user role
-      const apiPath = user?.role === 'restaurant' ? 'restaurant' : 'customer';
-      
       // Fetch order info
-      const orderResponse = await api.get(`/${apiPath}/orders/${orderId}/`);
+      const orderResponse = await api.get(`/customer/orders/${orderId}/`);
       setOrderInfo(orderResponse.data);
       
       // Fetch chat messages
-      const chatResponse = await api.get(`/${apiPath}/orders/${orderId}/chat/`);
-      setMessages(chatResponse.data);
+      const chatResponse = await api.get(`/customer/orders/${orderId}/chat/`);
+      
+      // Handle new response format with chat status
+      if (chatResponse.data.messages) {
+        setMessages(chatResponse.data.messages);
+        setChatStatus(chatResponse.data.chat_status || 'active');
+        setRiderName(chatResponse.data.rider_name || 'Your Rider');
+        
+        // Show status message if read-only
+        if (chatResponse.data.chat_status === 'read_only') {
+          setError("This order has been delivered. Chat is now read-only.");
+        }
+      } else {
+        // Fallback for old format
+        setMessages(chatResponse.data);
+      }
       
     } catch (error) {
       console.error("Error fetching chat data:", error);
-      setError("Failed to load chat");
       
       if (error.response?.status === 401) {
         localStorage.clear();
         navigate("/login");
+      } else if (error.response?.status === 403) {
+        setError("Access denied. Only customers can access this chat.");
       } else if (error.response?.status === 404) {
         setError("Order not found");
+      } else if (error.response?.status === 400) {
+        const errorData = error.response.data;
+        setError(errorData.message || "Chat not available for this order");
+      } else {
+        setError("Failed to load chat");
       }
     }
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || sending || !currentUser) return;
+    if (!newMessage.trim() || sending || !currentUser || chatStatus === 'read_only') return;
     
     try {
       setSending(true);
       
-      // Determine API path based on user role
-      const apiPath = currentUser.role === 'restaurant' ? 'restaurant' : 'customer';
-      
-      const response = await api.post(`/${apiPath}/orders/${orderId}/chat/`, {
+      const response = await api.post(`/customer/orders/${orderId}/chat/`, {
         message: newMessage.trim()
       });
       
@@ -78,7 +93,20 @@ export default function ChatInterface() {
       
     } catch (error) {
       console.error("Error sending message:", error);
-      alert("Failed to send message. Please try again.");
+      
+      if (error.response?.status === 400) {
+        const errorData = error.response.data;
+        if (errorData.error === 'Chat is read-only for delivered orders') {
+          setError("This order has been delivered. You can view chat history but cannot send new messages.");
+          setChatStatus('read_only');
+        } else if (errorData.error === 'No rider assigned to this order yet') {
+          setError("Chat will be available once a rider accepts your order.");
+        } else {
+          setError(errorData.message || "Cannot send message at this time");
+        }
+      } else {
+        alert("Failed to send message. Please try again.");
+      }
     } finally {
       setSending(false);
     }
@@ -170,16 +198,12 @@ export default function ChatInterface() {
             </button>
             <div style={{ flex: 1 }}>
               <div style={headerTitle}>
-                Order #{orderId}
+                Chat with {riderName || 'Rider'}
               </div>
               <div style={headerSubtitle}>
-                {orderInfo && (
-                  <>
-                    {currentUser?.role === 'restaurant' 
-                      ? getParticipantName(orderInfo.user)
-                      : getParticipantName(orderInfo.restaurant.owner)
-                    }
-                  </>
+                Order #{orderId}
+                {chatStatus === 'read_only' && (
+                  <span style={{ color: '#ff4444', marginLeft: 8 }}>• Read Only</span>
                 )}
               </div>
             </div>
@@ -243,25 +267,39 @@ export default function ChatInterface() {
 
           {/* Input */}
           <div style={inputContainer}>
-            <div style={inputRow}>
-              <textarea
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type a message..."
-                style={messageInput}
-                rows={1}
-                disabled={sending}
-              />
-              <button
-                onClick={sendMessage}
-                disabled={!newMessage.trim() || sending}
-                style={sendButton(!newMessage.trim() || sending)}
-                type="button"
-              >
-                {sending ? "..." : "→"}
-              </button>
-            </div>
+            {chatStatus === 'read_only' ? (
+              <div style={{
+                padding: "12px",
+                background: "#f8f9fa",
+                borderRadius: "8px",
+                textAlign: "center",
+                color: "#666",
+                fontSize: "0.8rem",
+                border: "1px solid #e0e0e0"
+              }}>
+                📋 This order has been delivered. Chat is now read-only.
+              </div>
+            ) : (
+              <div style={inputRow}>
+                <textarea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type a message to your rider..."
+                  style={messageInput}
+                  rows={1}
+                  disabled={sending}
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={!newMessage.trim() || sending}
+                  style={sendButton(!newMessage.trim() || sending)}
+                  type="button"
+                >
+                  {sending ? "..." : "→"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

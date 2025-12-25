@@ -211,10 +211,10 @@ export default function RiderOrders() {
 
                     {/* Action Button */}
                     <button
-                      onClick={() => navigate(`/rider/order-details/${order.id}`)}
+                      onClick={() => navigate(`/rider-navigation/${order.id}`)}
                       style={viewDetailsButton}
                     >
-                      View Details
+                      Navigate
                     </button>
                   </div>
                 ))}

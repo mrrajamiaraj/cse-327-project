@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 import api from "../services/api";
+import AIChatBot from "../components/ProfessionalAIChat";
 // category icons from assets
 import catAll from "../assets/cat-all.png";
-import catHotdog from "../assets/cat-hotdog.png";
-import catBurger from "../assets/cat-burger.png";
+// import catHotdog from "../assets/cat-hotdog.png";
+// import catBurger from "../assets/cat-burger.png";
 // import catPizza from "../assets/cat-pizza.png"; // use when you add pizza icon
 
 const ORANGE = "#ff7a00";
@@ -32,9 +33,11 @@ export default function HomeScreen() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await api.get("customer/home/");
+        // Fetch home data
+        const homeResponse = await api.get("customer/home/");
+        
         // Transform backend categories
-        const backendCategories = response.data.categories.map(c => ({
+        const backendCategories = homeResponse.data.categories.map(c => ({
           id: c.id,
           label: c.name,
           image: c.icon || catAll
@@ -43,8 +46,11 @@ export default function HomeScreen() {
         // Add "All" category manually
         setCategories([{ id: 0, label: "All", image: catAll }, ...backendCategories]);
 
+        // Fetch all restaurants separately to ensure we get all of them
+        const restaurantsResponse = await api.get("customer/restaurants/");
+        
         // Transform restaurants
-        const backendRestaurants = response.data.nearby_restaurants.map(r => ({
+        const backendRestaurants = restaurantsResponse.data.map(r => ({
           id: r.id,
           name: r.name,
           subtitle: r.cuisine,
@@ -85,10 +91,20 @@ export default function HomeScreen() {
         setUserLocation({ address: addr.title });
       }
     } else {
-      // Load current location from sessionStorage
+      // Load current location from sessionStorage only if it was successfully obtained
       const sessionLocation = sessionStorage.getItem('currentSessionLocation');
       if (sessionLocation) {
-        setUserLocation(JSON.parse(sessionLocation));
+        try {
+          const locationData = JSON.parse(sessionLocation);
+          // Only use location if it was successfully obtained (has the flag)
+          if (locationData.locationObtained) {
+            setUserLocation(locationData);
+          }
+        } catch (error) {
+          console.error("Error parsing session location:", error);
+          // Clear invalid location data
+          sessionStorage.removeItem('currentSessionLocation');
+        }
       }
     }
   }, []);
@@ -727,6 +743,9 @@ export default function HomeScreen() {
           </div>
         )}
       </div>
+
+      {/* AI ChatBot */}
+      <AIChatBot />
     </div>
   );
 }

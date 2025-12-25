@@ -105,6 +105,7 @@ export default function LocationAccess() {
           longitude,
           address: addressText,
           timestamp: new Date().toISOString(),
+          locationObtained: true, // Flag to indicate location was successfully obtained
         };
 
         setLocation({ lat: latitude, lng: longitude });
@@ -124,24 +125,28 @@ export default function LocationAccess() {
         switch (error.code) {
           case 1: // PERMISSION_DENIED
             errorMessage =
-              "Location access denied. Please enable location permissions.";
+              "Location access denied. Please enable location permissions in your browser settings.";
             break;
           case 2: // POSITION_UNAVAILABLE
-            errorMessage = "Location information unavailable.";
+            errorMessage = "Location information unavailable. Please check your GPS settings.";
             break;
           case 3: // TIMEOUT
-            errorMessage = "Location request timed out.";
+            errorMessage = "Location request timed out. Please try again or check your internet connection.";
             break;
           default:
             errorMessage = `Error getting location: ${error.message}`;
         }
 
         setError(errorMessage);
+        
+        // Clear any existing location data when location access fails
+        sessionStorage.removeItem("currentSessionLocation");
+        localStorage.removeItem("userLocation");
         },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
+        timeout: 20000, // Increased timeout to 20 seconds
+        maximumAge: 300000, // Allow cached location up to 5 minutes old
       }
     );
   };
@@ -292,7 +297,7 @@ export default function LocationAccess() {
               marginBottom: 12,
             }}
           >
-            "ACCESS LOCATION"
+            ACCESS LOCATION
           </button>
         ) : (
           <button
@@ -327,7 +332,12 @@ export default function LocationAccess() {
         </p>
 
         <button
-          onClick={() => navigate("/home")}
+          onClick={() => {
+            // Clear any existing location data when user skips
+            sessionStorage.removeItem("currentSessionLocation");
+            localStorage.removeItem("userLocation");
+            navigate("/home");
+          }}
           style={{
             marginTop: 8,
             padding: "8px 16px",

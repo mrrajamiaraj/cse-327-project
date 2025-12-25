@@ -106,24 +106,12 @@ export default function AdminDashboard() {
               <div style={statIcon}>📦</div>
               <div style={statValue}>{dashboardData.totalOrders}</div>
               <div style={statLabel}>Total Orders</div>
-              <button
-                onClick={() => navigate("/admin/orders")}
-                style={statButton}
-              >
-                View All
-              </button>
             </div>
 
             <div style={statCard}>
               <div style={statIcon}>💰</div>
               <div style={statValue}>৳{dashboardData.totalRevenue.toLocaleString()}</div>
               <div style={statLabel}>Total Revenue</div>
-              <button
-                onClick={() => navigate("/admin/analytics")}
-                style={statButton}
-              >
-                Analytics
-              </button>
             </div>
 
             <div style={statCard}>
@@ -142,12 +130,6 @@ export default function AdminDashboard() {
               <div style={statIcon}>🚴</div>
               <div style={statValue}>{dashboardData.activeRiders}</div>
               <div style={statLabel}>Active Riders</div>
-              <button
-                onClick={() => navigate("/admin/riders")}
-                style={statButton}
-              >
-                View
-              </button>
             </div>
           </div>
 
@@ -169,38 +151,6 @@ export default function AdminDashboard() {
               >
                 <div style={actionIcon}>🏪</div>
                 <div style={actionText}>Approve Restaurants</div>
-              </button>
-
-              <button
-                onClick={() => navigate("/admin/orders")}
-                style={actionCard}
-              >
-                <div style={actionIcon}>📦</div>
-                <div style={actionText}>Monitor Orders</div>
-              </button>
-
-              <button
-                onClick={() => navigate("/admin/analytics")}
-                style={actionCard}
-              >
-                <div style={actionIcon}>📊</div>
-                <div style={actionText}>View Analytics</div>
-              </button>
-
-              <button
-                onClick={() => navigate("/admin/reviews")}
-                style={actionCard}
-              >
-                <div style={actionIcon}>⭐</div>
-                <div style={actionText}>Manage Reviews</div>
-              </button>
-
-              <button
-                onClick={() => navigate("/admin/settings")}
-                style={actionCard}
-              >
-                <div style={actionIcon}>⚙️</div>
-                <div style={actionText}>Platform Settings</div>
               </button>
             </div>
           </div>

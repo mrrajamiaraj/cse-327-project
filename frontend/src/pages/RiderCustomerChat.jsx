@@ -41,7 +41,19 @@ export default function RiderCustomerChat() {
       
       // Fetch chat messages
       const chatResponse = await api.get(`/rider/orders/${orderId}/chat/`);
-      setMessages(chatResponse.data);
+      
+      // Handle new response format with chat status
+      if (chatResponse.data.messages) {
+        setMessages(chatResponse.data.messages);
+        
+        // Check if chat is read-only
+        if (chatResponse.data.chat_status === 'read_only') {
+          setError("This order has been delivered. Chat is now read-only.");
+        }
+      } else {
+        // Fallback for old format
+        setMessages(chatResponse.data);
+      }
       
     } catch (error) {
       console.error("Error fetching chat data:", error);
@@ -54,7 +66,8 @@ export default function RiderCustomerChat() {
       } else if (error.response?.status === 404) {
         setError("Order not found");
       } else if (error.response?.status === 400) {
-        setError("Chat not available for this order");
+        const errorData = error.response.data;
+        setError(errorData.message || "Chat not available for this order");
       } else {
         setError("Failed to load chat");
       }
@@ -76,7 +89,17 @@ export default function RiderCustomerChat() {
       
     } catch (error) {
       console.error("Error sending message:", error);
-      alert("Failed to send message. Please try again.");
+      
+      if (error.response?.status === 400) {
+        const errorData = error.response.data;
+        if (errorData.error === 'Chat is read-only for delivered orders') {
+          setError("This order has been delivered. You can view chat history but cannot send new messages.");
+        } else {
+          setError(errorData.message || "Cannot send message at this time");
+        }
+      } else {
+        alert("Failed to send message. Please try again.");
+      }
     } finally {
       setSending(false);
     }

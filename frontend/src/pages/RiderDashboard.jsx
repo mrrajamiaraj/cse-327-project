@@ -178,8 +178,13 @@ export default function RiderDashboard() {
     try {
       await api.post(`/rider/orders/${orderId}/update-status/`, { status });
       fetchCurrentOrder();
+      // Also refresh available orders in case this order is now complete
+      if (status === 'delivered') {
+        fetchAvailableOrders();
+      }
     } catch (error) {
       console.error("Error updating order status:", error);
+      alert(error.response?.data?.error || "Failed to update order status. Please try again.");
     }
   };
 
@@ -304,20 +309,38 @@ export default function RiderDashboard() {
                 </div>
 
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    onClick={() => updateOrderStatus(riderData.currentOrder.id, 'picked_up')}
-                    style={{ ...actionButton, background: ORANGE, flex: 1 }}
-                  >
-                    📦 Mark Picked Up
-                  </button>
+                  {riderData.currentOrder.status === 'rider_assigned' && (
+                    <button
+                      onClick={() => updateOrderStatus(riderData.currentOrder.id, 'picked_up')}
+                      style={{ ...actionButton, background: ORANGE, flex: 1 }}
+                    >
+                      📦 Mark Picked Up
+                    </button>
+                  )}
+                  {riderData.currentOrder.status === 'picked_up' && (
+                    <button
+                      onClick={() => updateOrderStatus(riderData.currentOrder.id, 'out_for_delivery')}
+                      style={{ ...actionButton, background: ORANGE, flex: 1 }}
+                    >
+                      🚚 Start Delivery
+                    </button>
+                  )}
+                  {riderData.currentOrder.status === 'out_for_delivery' && (
+                    <button
+                      onClick={() => updateOrderStatus(riderData.currentOrder.id, 'delivered')}
+                      style={{ ...actionButton, background: "#28a745", flex: 1 }}
+                    >
+                      ✅ Mark Delivered
+                    </button>
+                  )}
                   <button
                     onClick={() => navigate(`/rider/chat/${riderData.currentOrder.id}`)}
-                    style={{ ...actionButton, background: "#28a745" }}
+                    style={{ ...actionButton, background: "#007bff" }}
                   >
                     💬 Chat
                   </button>
                   <button
-                    onClick={() => navigate(`/order-tracking/${riderData.currentOrder.id}`)}
+                    onClick={() => navigate(`/rider-navigation/${riderData.currentOrder.id}`)}
                     style={{ ...actionButton, background: "#6c757d" }}
                   >
                     🗺️ Navigate

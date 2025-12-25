@@ -7,12 +7,14 @@ const ORANGE = "#ff7a00";
 export default function MyFoodList() {
   const navigate = useNavigate();
   const [foods, setFoods] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("All");
 
   useEffect(() => {
     fetchMyFoods();
+    fetchCategories();
   }, []);
 
   const fetchMyFoods = async () => {
@@ -26,6 +28,21 @@ export default function MyFoodList() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/restaurant/menu/categories/');
+      setCategories(response.data || []);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+
+  // Get unique categories from current food items
+  const getAvailableCategories = () => {
+    const foodCategories = [...new Set(foods.map(food => food.category?.name).filter(Boolean))];
+    return foodCategories.slice(0, 3); // Show only first 3 categories as tabs
   };
 
   // Filter foods based on active tab
@@ -48,7 +65,8 @@ export default function MyFoodList() {
   };
 
   const handleEditFood = (foodId) => {
-    navigate(`/edit-food/${foodId}`);
+    // For now, just show an alert - edit functionality can be added later
+    alert(`Edit functionality for food item ${foodId} will be available soon`);
   };
 
   return (
@@ -132,9 +150,14 @@ export default function MyFoodList() {
             }}
           >
             <Tab active={activeTab === "All"} label="All" onClick={() => setActiveTab("All")} />
-            <Tab active={activeTab === "Breakfast"} label="Breakfast" onClick={() => setActiveTab("Breakfast")} />
-            <Tab active={activeTab === "Lunch"} label="Lunch" onClick={() => setActiveTab("Lunch")} />
-            <Tab active={activeTab === "Dinner"} label="Dinner" onClick={() => setActiveTab("Dinner")} />
+            {getAvailableCategories().map(category => (
+              <Tab 
+                key={category}
+                active={activeTab === category} 
+                label={category} 
+                onClick={() => setActiveTab(category)} 
+              />
+            ))}
           </div>
 
           {/* total */}
@@ -225,6 +248,7 @@ export default function MyFoodList() {
             active="list"
             onBox={() => navigate("/my-food")}
             onOrders={() => navigate("/running-orders")}
+            onAdd={() => navigate("/add-new-items")}
           />
         </div>
       </div>
@@ -437,7 +461,7 @@ function FoodRow({ food, onEdit, onDelete }) {
   );
 }
 
-function SellerBottomNav({ active, onBox, onOrders }) {
+function SellerBottomNav({ active, onBox, onOrders, onAdd }) {
   return (
     <div
       style={{
@@ -476,6 +500,7 @@ function SellerBottomNav({ active, onBox, onOrders }) {
       </button>
 
       <button
+        onClick={onAdd}
         style={{
           width: 40,
           height: 40,
@@ -489,6 +514,7 @@ function SellerBottomNav({ active, onBox, onOrders }) {
           fontSize: "1.3rem",
           marginTop: -22,
           boxShadow: "0 4px 12px rgba(255,122,0,0.55)",
+          cursor: "pointer"
         }}
       >
         +

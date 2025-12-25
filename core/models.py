@@ -189,7 +189,7 @@ class Food(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    image = models.ImageField(upload_to='foods/')
+    image = models.ImageField(upload_to='foods/', null=True, blank=True)
     is_veg = models.BooleanField(default=True)
     ingredients = models.TextField(null=True)
     available_addons = models.ManyToManyField(Addon, blank=True, help_text="Select addons available for this food item")
@@ -343,11 +343,35 @@ class Transaction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 
+class AIChatSession(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    title = models.CharField(max_length=200, default="New Chat")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.title}"
+    
+    def get_preview(self):
+        """Get first message as preview"""
+        first_message = self.messages.first()
+        if first_message:
+            return first_message.message[:50] + "..." if len(first_message.message) > 50 else first_message.message
+        return "New Chat"
+
+
 class AIChatMessage(models.Model):
+    session = models.ForeignKey(AIChatSession, on_delete=models.CASCADE, related_name='messages', null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     message = models.TextField()
     response = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['created_at']
 
 
 class RiderLocation(models.Model):

@@ -306,7 +306,7 @@ export default function Signup() {
                 opacity: 1,
               }}
             >
-              "SIGN UP"
+              SIGN UP
             </button>
           </form>
 

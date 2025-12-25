@@ -202,7 +202,7 @@ export default function Login() {
                 opacity: 1,
               }}
             >
-              "LOG IN"
+              LOG IN
             </button>
           </form>
 

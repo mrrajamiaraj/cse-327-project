@@ -1,6 +1,10 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+# from dotenv import load_dotenv
+
+# Load environment variables from .env file
+# load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -155,3 +159,8 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+# AI Configuration
+GROK_API_KEY = os.environ.get('GROK_API_KEY', 'xai-TIhI3cRaNOockERNemFsxqf3dNpsqKAW5XiTWY20tLb1DRQtz5Ohg0KNMAtoOT9TRueXzNdi2ecNePRe')  # Keep for backward compatibility
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', None)  # Keep for backward compatibility
+HUGGINGFACE_API_KEY = os.environ.get('HUGGINGFACE_API_KEY', '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')  # Add your Hugging Face API key
